@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { useCart } from '@/lib/cart-context';
@@ -123,7 +122,6 @@ function PaymentSuccessContent() {
 export default function PaymentSuccessPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={0} />
       <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6">
         <Suspense
           fallback={

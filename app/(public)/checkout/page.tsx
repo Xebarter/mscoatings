@@ -6,7 +6,6 @@ import { ArrowLeft, CreditCard, Smartphone } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import type { OrderItem } from '@/lib/firestore';
 import toast from 'react-hot-toast';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { formatUgx } from '@/lib/currency';
@@ -23,7 +22,6 @@ export default function CheckoutPage() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-white">
-        <Header cartCount={0} />
         <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6">
           <p className="mb-6 text-lg text-body">Your cart is empty</p>
           <BrandButton href="/products" variant="primary">Continue Shopping</BrandButton>
@@ -89,8 +87,6 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={cart.length} />
-
       <div className="bg-light-gray border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
           <Link href="/cart" className="inline-flex items-center gap-2 text-sm font-medium text-premium-blue hover:text-cyan">

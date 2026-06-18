@@ -9,9 +9,9 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import BrandButton from '@/components/brand-button';
 import Logo from '@/components/logo';
+import { useCart } from '@/lib/cart-context';
 
 interface HeaderProps {
-  cartCount?: number;
   isAdmin?: boolean;
 }
 
@@ -21,10 +21,12 @@ const navLinks = [
   { href: '/#contact', label: 'Contact' },
 ];
 
-export default function Header({ cartCount = 0, isAdmin = false }: HeaderProps) {
+export default function Header({ isAdmin = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const router = useRouter();
+  const { cart } = useCart();
+  const cartCount = cart.length;
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 12);
@@ -45,7 +47,7 @@ export default function Header({ cartCount = 0, isAdmin = false }: HeaderProps) 
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${
         isScrolled ? 'glass-header shadow-lg' : 'bg-navy'
       }`}
     >

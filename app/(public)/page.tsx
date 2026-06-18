@@ -3,11 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { getProducts, Product } from '@/lib/firestore';
-import { useCart } from '@/lib/cart-context';
 import toast from 'react-hot-toast';
 import ProductCard from '@/components/product-card';
 import HeroProductShowcase from '@/components/hero-product-showcase';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import SearchBar from '@/components/search-bar';
@@ -17,7 +15,6 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
-  const { cart } = useCart();
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -52,8 +49,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white">
-      <Header cartCount={cart.length} />
-
       {/* Hero */}
       <section className="relative overflow-hidden bg-light-gray">
         <div className="absolute inset-0">

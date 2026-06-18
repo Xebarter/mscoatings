@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { XCircle } from 'lucide-react';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 
@@ -48,7 +47,6 @@ function PaymentFailureContent() {
 export default function PaymentFailurePage() {
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={0} />
       <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6">
         <Suspense fallback={<div className="py-20 text-center text-body">Loading...</div>}>
           <PaymentFailureContent />

@@ -8,7 +8,6 @@ import { Product, getProducts } from '@/lib/firestore';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import toast from 'react-hot-toast';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
@@ -21,7 +20,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const { addToCart, cart } = useCart();
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -63,7 +62,6 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
-        <Header cartCount={cart.length} />
         <div className="flex justify-center py-32">
           <div className="h-12 w-12 animate-spin rounded-full border-2 border-gray-200 border-t-premium-blue" />
         </div>
@@ -74,7 +72,6 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <div className="min-h-screen bg-white">
-        <Header cartCount={cart.length} />
         <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6">
           <p className="mb-6 text-lg text-body">Product not found</p>
           <BrandButton href="/products" variant="primary">Back to Products</BrandButton>
@@ -88,8 +85,6 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={cart.length} />
-
       <div className="bg-light-gray border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
           <Link

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { formatUgx } from '@/lib/currency';
@@ -36,8 +35,6 @@ export default function OrderConfirmationPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={0} />
-
       <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6">
         <div className="text-center">
           <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-light-gray">

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
@@ -15,8 +14,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={cart.length} />
-
       <div className="bg-light-gray border-b border-gray-100">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
           <Link

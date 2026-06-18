@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { getProducts, Product } from '@/lib/firestore';
-import { useCart } from '@/lib/cart-context';
 import toast from 'react-hot-toast';
 import ProductCard from '@/components/product-card';
-import Header from '@/components/header';
 import Footer from '@/components/footer';
 import SearchBar from '@/components/search-bar';
 import SectionHeading from '@/components/section-heading';
@@ -15,7 +13,6 @@ import SectionHeading from '@/components/section-heading';
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { cart } = useCart();
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -34,8 +31,6 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header cartCount={cart.length} />
-
       <div className="bg-light-gray border-b border-gray-100">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-4 text-sm sm:px-6">
           <Link href="/" className="text-premium-blue transition-colors hover:text-cyan">
