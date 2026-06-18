@@ -1,12 +1,16 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter, Manrope } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import LayoutClient from '@/components/layout-client'
 import { BRAND_ASSETS, BRAND_NAME } from '@/lib/brand'
 
-const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
-const manrope = Manrope({ variable: '--font-manrope', subsets: ['latin'] })
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: '--font-plus-jakarta',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+})
 
 const siteDescription =
   'Premium automotive coatings and industrial paint solutions engineered for durability, innovation, and exceptional finishes.'
@@ -59,7 +63,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`light ${inter.variable} ${manrope.variable}`}
+      className={`light ${plusJakarta.variable}`}
       data-scroll-behavior="smooth"
     >
       <body className="font-sans" suppressHydrationWarning>

@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-manrope), var(--font-inter), sans-serif;
-  --font-sans: var(--font-inter), 'Inter', sans-serif;
+  --font-heading: var(--font-plus-jakarta), 'Plus Jakarta Sans', sans-serif;
+  --font-sans: var(--font-plus-jakarta), 'Plus Jakarta Sans', sans-serif;
   --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
   --color-navy: #0f172a;
   --color-charcoal: #1f2937;
@@ -182,12 +182,19 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-white text-body antialiased;
-    font-family: var(--font-inter), 'Inter', sans-serif;
-    line-height: 1.7;
+    @apply bg-white text-body font-sans antialiased;
+    line-height: 1.65;
+    letter-spacing: -0.011em;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
   html {
     @apply font-sans scroll-smooth;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
   h1,
   h2,
@@ -195,10 +202,11 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-manrope), 'Manrope', sans-serif;
+    @apply font-sans;
     color: var(--navy);
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
   }
 }
 

@@ -15,7 +15,7 @@ export default function Footer() {
 
   return (
     <footer id="contact" className="bg-navy text-[#D1D5DB]">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 md:py-20">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="mb-5">

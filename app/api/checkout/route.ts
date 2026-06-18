@@ -1,8 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { OrderItem } from '@/lib/firestore';
+import { ordersCollection, type OrderItem } from '@/lib/firestore';
 import {
   appendOrderIdToUrl,
   getPaytotaConfig,
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     const config = getPaytotaConfig();
     const orderReference = randomUUID();
-    const orderRef = doc(db, 'orders');
+    const orderRef = doc(ordersCollection);
     const orderId = orderRef.id;
     const subtotal = items.reduce(
       (sum, item) => sum + item.price * item.quantity,

@@ -16,9 +16,9 @@ const variantStyles: Record<
 > = {
   card: {
     frame:
-      'flex aspect-[4/3] items-center justify-center bg-gradient-to-b from-slate-50 via-white to-slate-50 p-2 sm:p-3',
+      'flex aspect-[5/4] items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 p-0',
     image:
-      'h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]',
+      'h-full w-full origin-center scale-[1.14] object-contain transition-transform duration-500 group-hover:scale-[1.2]',
   },
   hero: {
     frame:

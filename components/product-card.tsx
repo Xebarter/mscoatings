@@ -12,9 +12,17 @@ import { formatUgx } from '@/lib/currency';
 
 interface ProductCardProps {
   product: Product;
+  compact?: boolean;
+  density?: 'default' | 'compact' | 'adaptive';
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  compact = false,
+  density = 'default',
+}: ProductCardProps) {
+  const isCompact = compact || density === 'compact';
+  const isAdaptive = density === 'adaptive';
   const [isAdding, setIsAdding] = useState(false);
   const { addToCart } = useCart();
   const categoryColor = getCategoryColor(product.category);
@@ -50,13 +58,25 @@ export default function ProductCard({ product }: ProductCardProps) {
             variant="card"
           />
           <div
-            className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm sm:left-4 sm:top-4 sm:px-3 sm:text-xs"
+            className={`absolute max-w-[calc(100%-1.5rem)] truncate rounded-full font-semibold text-white shadow-sm ${
+              isCompact
+                ? 'left-2 top-2 px-2 py-0.5 text-[10px]'
+                : isAdaptive
+                  ? 'left-2 top-2 px-2 py-0.5 text-[10px] lg:left-4 lg:top-4 lg:px-3 lg:py-1 lg:text-xs'
+                  : 'left-3 top-3 px-2.5 py-1 text-[11px] sm:left-4 sm:top-4 sm:px-3 sm:text-xs'
+            }`}
             style={{ backgroundColor: categoryColor }}
           >
             {product.category}
           </div>
-          {inStock && product.stock <= 5 && (
-            <span className="absolute right-3 top-3 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200 sm:right-4 sm:top-4 sm:text-xs">
+          {inStock && product.stock <= 5 && !isCompact && (
+            <span
+              className={`absolute rounded-full bg-amber-50 font-semibold text-amber-700 ring-1 ring-amber-200 ${
+                isAdaptive
+                  ? 'right-2 top-2 hidden px-2 py-0.5 text-[10px] lg:right-4 lg:top-4 lg:block lg:px-2.5 lg:py-1 lg:text-xs'
+                  : 'right-3 top-3 px-2.5 py-1 text-[11px] sm:right-4 sm:top-4 sm:text-xs'
+              }`}
+            >
               Low stock
             </span>
           )}
@@ -69,39 +89,101 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        <div className="flex flex-1 flex-col p-4 sm:p-6">
-          <h3 className="mb-2 line-clamp-2 text-base font-bold leading-snug text-navy transition-colors group-hover:text-premium-blue sm:text-lg">
+        <div
+          className={`flex flex-1 flex-col ${
+            isCompact
+              ? 'p-2.5'
+              : isAdaptive
+                ? 'p-2.5 lg:p-4'
+                : 'p-3 sm:p-4'
+          }`}
+        >
+          <h3
+            className={`line-clamp-2 font-bold leading-snug text-navy transition-colors group-hover:text-premium-blue ${
+              isCompact
+                ? 'mb-1.5 text-sm'
+                : isAdaptive
+                  ? 'mb-1.5 text-sm lg:mb-2 lg:text-lg'
+                  : 'mb-1.5 text-base sm:mb-2 sm:text-lg'
+            }`}
+          >
             {product.name}
           </h3>
-          <p className="mb-4 flex-1 text-sm leading-relaxed text-body line-clamp-2 sm:mb-5">
-            {product.description}
-          </p>
+          {(isAdaptive || !isCompact) && (
+            <p
+              className={`flex-1 text-sm leading-snug text-body line-clamp-2 ${
+                isAdaptive
+                  ? 'mb-2 hidden lg:mb-3 lg:block'
+                  : 'mb-2 sm:mb-3'
+              }`}
+            >
+              {product.description}
+            </p>
+          )}
 
-          <div className="mt-auto flex items-end justify-between gap-3 border-t border-gray-100 pt-4 sm:gap-4 sm:pt-5">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                Price
-              </p>
-              <p className="text-xl font-extrabold text-navy sm:text-2xl">
+          <div
+            className={`mt-auto flex items-end justify-between border-t border-gray-100 ${
+              isCompact
+                ? 'gap-2 pt-2'
+                : isAdaptive
+                  ? 'gap-2 pt-2 lg:gap-3 lg:pt-3'
+                  : 'gap-2 pt-2.5 sm:gap-3 sm:pt-3'
+            }`}
+          >
+            <div className="min-w-0">
+              {!isCompact && !isAdaptive && (
+                <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  Price
+                </p>
+              )}
+              <p
+                className={`font-extrabold text-navy ${
+                  isCompact
+                    ? 'text-base leading-tight'
+                    : isAdaptive
+                      ? 'text-base leading-tight lg:text-2xl'
+                      : 'text-xl sm:text-2xl'
+                }`}
+              >
                 {formatUgx(product.price)}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isAdding || !inStock}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy text-white shadow-sm transition-all hover:bg-charcoal hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11"
+                className={`flex items-center justify-center rounded-xl bg-navy text-white shadow-sm transition-all hover:bg-charcoal hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isCompact
+                    ? 'h-9 w-9'
+                    : isAdaptive
+                      ? 'h-9 w-9 lg:h-11 lg:w-11'
+                      : 'h-10 w-10 sm:h-11 sm:w-11'
+                }`}
                 aria-label="Add to cart"
               >
-                <ShoppingCart size={18} />
+                <ShoppingCart
+                  className={
+                    isCompact
+                      ? 'h-4 w-4'
+                      : isAdaptive
+                        ? 'h-4 w-4 lg:h-[18px] lg:w-[18px]'
+                        : 'h-[18px] w-[18px]'
+                  }
+                />
               </button>
-              <span
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-navy shadow-sm transition-all group-hover:border-premium-blue group-hover:text-premium-blue sm:h-11 sm:w-11"
-                aria-hidden
-              >
-                <ArrowRight size={18} />
-              </span>
+              {(!isCompact || isAdaptive) && (
+                <span
+                  className={`items-center justify-center rounded-xl border border-gray-200 bg-white text-navy shadow-sm transition-all group-hover:border-premium-blue group-hover:text-premium-blue ${
+                    isAdaptive
+                      ? 'hidden h-11 w-11 lg:flex'
+                      : 'flex h-10 w-10 sm:h-11 sm:w-11'
+                  }`}
+                  aria-hidden
+                >
+                  <ArrowRight size={18} />
+                </span>
+              )}
             </div>
           </div>
         </div>
