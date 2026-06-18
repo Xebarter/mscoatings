@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Keep in sync with NEXT_PUBLIC_ADMIN_EMAILS in .env
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'sebenock027@gmail.com',
+          'johnmuhereza211@gmail.com'
+        ];
+    }
+
+    function validNewProduct() {
+      return request.resource.data.keys().hasAll([
+          'name',
+          'description',
+          'price',
+          'category',
+          'stock',
+          'image',
+          'createdAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.description is string
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.category is string
+        && request.resource.data.stock is number
+        && request.resource.data.stock >= 0
+        && request.resource.data.image is string
+        && request.resource.data.image.size() > 0
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validNewOrder() {
+      return request.resource.data.keys().hasAll([
+          'items',
+          'customerName',
+          'customerEmail',
+          'customerPhone',
+          'totalPrice',
+          'status',
+          'createdAt'
+        ])
+        && request.resource.data.customerName is string
+        && request.resource.data.customerEmail is string
+        && request.resource.data.customerPhone is string
+        && request.resource.data.totalPrice is number
+        && request.resource.data.totalPrice > 0
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() && validNewProduct();
+      allow update, delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if validNewOrder();
+    }
+  }
+}

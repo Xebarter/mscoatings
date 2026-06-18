@@ -1,0 +1,40 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Environment variables (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Dependencies & build output
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Firebase local state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Service account keys
+*-service-account*.json
+serviceAccountKey.json
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+.idea/
+.vscode/
