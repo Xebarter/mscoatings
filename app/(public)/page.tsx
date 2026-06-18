@@ -64,7 +64,7 @@ export default function HomePage() {
         </div>
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-12 lg:py-24">
-          <div className="order-2 lg:order-1">
+          <div>
             <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-premium-blue/20 bg-white px-3 py-1.5 text-xs font-medium text-premium-blue shadow-sm sm:mb-5 sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
               <img
                 src={BRAND_ASSETS.logo}
@@ -98,7 +98,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div>
             <HeroProductShowcase products={products} loading={loading} />
           </div>
         </div>
