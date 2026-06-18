@@ -4,6 +4,8 @@ import { useState, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '@/lib/firestore';
+import ProductImage from '@/components/product-image';
+import { formatUgx } from '@/lib/currency';
 
 interface SearchBarProps {
   products: Product[];
@@ -73,17 +75,19 @@ export default function SearchBar({ products }: SearchBarProps) {
                   }}
                   className="flex items-center gap-4 p-4 transition-colors hover:bg-light-gray"
                 >
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-14 w-14 rounded-xl object-cover"
-                  />
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl ring-1 ring-gray-100">
+                    <ProductImage
+                      src={product.image}
+                      alt={product.name}
+                      variant="inline"
+                    />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-navy">{product.name}</p>
                     <p className="truncate text-sm text-body">{product.category}</p>
                   </div>
                   <p className="whitespace-nowrap font-bold text-navy">
-                    ${product.price}
+                    {formatUgx(product.price)}
                   </p>
                 </Link>
               ))}

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/paytota/reconcile",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { formatUgx } from '@/lib/currency';
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -96,7 +97,7 @@ export default function OrderDetailPage() {
               <div>
                 <p className="mb-1 text-sm text-slate-500">Total Amount</p>
                 <p className="text-xl font-bold text-emerald-600">
-                  ${order.totalPrice.toFixed(2)}
+                  {formatUgx(order.totalPrice)}
                 </p>
               </div>
               <div>
@@ -168,10 +169,10 @@ export default function OrderDetailPage() {
                       </td>
                       <td className="px-6 py-4 text-slate-600">{item.quantity}</td>
                       <td className="px-6 py-4 text-slate-600">
-                        ${item.price.toFixed(2)}
+                        {formatUgx(item.price)}
                       </td>
                       <td className="px-6 py-4 text-right font-semibold text-slate-900">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatUgx(item.price * item.quantity)}
                       </td>
                     </tr>
                   ))}

@@ -293,15 +293,15 @@ export default function EditProductPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Price
+                    Price (UGX)
                   </label>
                   <input
                     type="number"
                     name="price"
                     value={formData.price}
                     onChange={handleInputChange}
-                    placeholder="99.99"
-                    step="0.01"
+                    placeholder="50000"
+                    step="1"
                     min="0"
                     className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   />

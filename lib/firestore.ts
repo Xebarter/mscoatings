@@ -31,6 +31,8 @@ export interface OrderItem {
   price: number;
 }
 
+export type OrderPaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
+
 export interface Order {
   id: string;
   items: OrderItem[];
@@ -39,6 +41,11 @@ export interface Order {
   customerPhone: string;
   totalPrice: number;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered';
+  paymentStatus?: OrderPaymentStatus;
+  paytotaPurchaseId?: string;
+  paytotaReference?: string;
+  paymentMethod?: string;
+  paidAt?: Timestamp;
   createdAt: Timestamp;
 }
 

@@ -8,15 +8,13 @@ import { Product } from '@/lib/firestore';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import BrandButton from '@/components/brand-button';
+import ProductImage from '@/components/product-image';
 import toast from 'react-hot-toast';
+import { formatUgx } from '@/lib/currency';
 
 interface HeroProductShowcaseProps {
   products: Product[];
   loading: boolean;
-}
-
-function formatPrice(price: number) {
-  return `$${price.toFixed(2)}`;
 }
 
 export default function HeroProductShowcase({
@@ -136,12 +134,12 @@ export default function HeroProductShowcase({
   return (
     <div className="relative lg:pb-16">
       <div className="card-premium overflow-hidden p-1.5 sm:p-2">
-        <div className="relative overflow-hidden rounded-xl bg-light-gray">
-          <img
+        <div className="relative overflow-hidden rounded-xl">
+          <ProductImage
             key={activeProduct.id}
             src={activeProduct.image}
             alt={activeProduct.name}
-            className="h-[220px] w-full object-cover transition-opacity duration-500 sm:h-[300px] lg:h-[380px]"
+            variant="hero"
           />
 
           {featuredProducts.length > 1 && (
@@ -180,18 +178,18 @@ export default function HeroProductShowcase({
                 key={product.id}
                 type="button"
                 onClick={() => setActiveIndex(index)}
-                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition sm:h-16 sm:w-16 ${
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition sm:h-16 sm:w-16 ${
                   index === activeIndex
                     ? 'border-premium-blue ring-2 ring-premium-blue/20'
-                    : 'border-transparent opacity-70 hover:opacity-100'
+                    : 'border-slate-200 opacity-80 hover:opacity-100'
                 }`}
                 aria-label={`View ${product.name}`}
                 aria-current={index === activeIndex}
               >
-                <img
+                <ProductImage
                   src={product.image}
                   alt=""
-                  className="h-full w-full object-cover"
+                  variant="thumb"
                 />
               </button>
             ))}
@@ -220,7 +218,7 @@ export default function HeroProductShowcase({
           <div>
             <p className="text-xs uppercase tracking-wider text-gray-400">From</p>
             <p className="text-2xl font-extrabold text-navy">
-              {formatPrice(activeProduct.price)}
+              {formatUgx(activeProduct.price)}
             </p>
           </div>
           <p className="text-xs font-medium text-emerald-600">

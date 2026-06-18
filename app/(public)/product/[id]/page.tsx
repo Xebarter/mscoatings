@@ -11,6 +11,8 @@ import toast from 'react-hot-toast';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
+import ProductImage from '@/components/product-image';
+import { formatUgx } from '@/lib/currency';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -102,11 +104,11 @@ export default function ProductDetailPage() {
 
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-          <div className="card-premium overflow-hidden p-3">
-            <img
+          <div className="card-premium overflow-hidden p-3 sm:p-4">
+            <ProductImage
               src={product.image}
               alt={product.name}
-              className="h-[420px] w-full rounded-xl object-cover lg:h-[500px]"
+              variant="detail"
             />
           </div>
 
@@ -135,7 +137,7 @@ export default function ProductDetailPage() {
 
             <div className="mb-8 border-y border-gray-100 py-8">
               <p className="text-sm uppercase tracking-wider text-gray-400">Price</p>
-              <p className="text-5xl font-extrabold text-navy">${product.price}</p>
+              <p className="text-5xl font-extrabold text-navy">{formatUgx(product.price)}</p>
             </div>
 
             <div className="mb-6 flex flex-wrap items-center gap-4">

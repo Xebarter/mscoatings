@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout, { AdminSection } from '@/components/admin-layout';
 import AdminStatCard from '@/components/admin-stat-card';
+import { formatUgx } from '@/lib/currency';
 import {
   AlertTriangle,
   ArrowRight,
@@ -20,6 +21,19 @@ import {
 } from 'lucide-react';
 
 const validTabs: AdminSection[] = ['overview', 'products', 'orders', 'analytics'];
+
+function getPaymentStatusStyles(paymentStatus?: Order['paymentStatus']) {
+  switch (paymentStatus) {
+    case 'paid':
+      return 'bg-emerald-50 text-emerald-700 ring-emerald-600/20';
+    case 'failed':
+      return 'bg-red-50 text-red-700 ring-red-600/20';
+    case 'cancelled':
+      return 'bg-slate-100 text-slate-600 ring-slate-500/20';
+    default:
+      return 'bg-amber-50 text-amber-700 ring-amber-600/20';
+  }
+}
 
 function getStatusStyles(status: Order['status']) {
   switch (status) {
@@ -140,14 +154,14 @@ function DashboardContent() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <AdminStatCard
                   label="Total Revenue"
-                  value={`$${analyticsData.totalRevenue.toFixed(2)}`}
+                  value={formatUgx(analyticsData.totalRevenue)}
                   hint={`From ${orders.length} orders`}
                   icon={TrendingUp}
                   tone="success"
                 />
                 <AdminStatCard
                   label="Avg Order Value"
-                  value={`$${analyticsData.averageOrderValue.toFixed(2)}`}
+                  value={formatUgx(analyticsData.averageOrderValue)}
                   hint="Per transaction"
                   icon={ShoppingBag}
                   tone="info"
@@ -289,7 +303,7 @@ function DashboardContent() {
                             {product.category}
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                            ${product.price}
+                            {formatUgx(product.price)}
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -345,6 +359,9 @@ function DashboardContent() {
                           Total
                         </th>
                         <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Payment
+                        </th>
+                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                           Status
                         </th>
                         <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -365,7 +382,15 @@ function DashboardContent() {
                             <p className="text-sm text-slate-500">{order.customerEmail}</p>
                           </td>
                           <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                            ${order.totalPrice.toFixed(2)}
+                            {formatUgx(order.totalPrice)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${getPaymentStatusStyles(order.paymentStatus)}`}
+                            >
+                              {(order.paymentStatus ?? 'pending').charAt(0).toUpperCase() +
+                                (order.paymentStatus ?? 'pending').slice(1)}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -436,10 +461,9 @@ function DashboardContent() {
                     <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
                       <span className="text-sm text-slate-600">Revenue per product</span>
                       <span className="font-semibold text-slate-900">
-                        $
                         {products.length > 0
-                          ? (analyticsData.totalRevenue / products.length).toFixed(2)
-                          : '0.00'}
+                          ? formatUgx(analyticsData.totalRevenue / products.length)
+                          : formatUgx(0)}
                       </span>
                     </div>
                   </div>
@@ -457,10 +481,9 @@ function DashboardContent() {
                     <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
                       <span className="text-sm text-slate-600">Revenue per customer</span>
                       <span className="font-semibold text-slate-900">
-                        $
                         {analyticsData.totalCustomers > 0
-                          ? (analyticsData.totalRevenue / analyticsData.totalCustomers).toFixed(2)
-                          : '0.00'}
+                          ? formatUgx(analyticsData.totalRevenue / analyticsData.totalCustomers)
+                          : formatUgx(0)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">

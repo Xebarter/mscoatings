@@ -71,7 +71,7 @@ export default function ProductsPage() {
                   <p className="text-lg text-body">No products available yet. Check back soon.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
                   {products.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}

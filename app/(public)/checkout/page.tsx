@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, CreditCard, Smartphone } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
-import { createOrder, OrderItem } from '@/lib/firestore';
+import type { OrderItem } from '@/lib/firestore';
 import toast from 'react-hot-toast';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
+import { formatUgx } from '@/lib/currency';
 
 export default function CheckoutPage() {
-  const router = useRouter();
-  const { cart, clearCart, cartTotal } = useCart();
+  const { cart, cartTotal } = useCart();
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -53,26 +52,38 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price,
       }));
-      const orderId = await createOrder({
-        items: orderItems,
-        customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
-        customerPhone: formData.customerPhone,
-        totalPrice: cartTotal,
-        status: 'pending',
+
+      const totalPrice = Math.round(cartTotal * 1.1);
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: orderItems,
+          customerName: formData.customerName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
+          totalPrice,
+        }),
       });
-      toast.success('Order placed successfully');
-      clearCart();
-      router.push(`/order-confirmation/${orderId}`);
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Failed to start payment');
+      }
+
+      toast.success('Redirecting to Paytota...');
+      window.location.href = data.checkoutUrl;
     } catch (error) {
-      console.error('Error creating order:', error);
-      toast.error('Failed to create order. Please try again.');
-    } finally {
+      console.error('Checkout error:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to start payment. Please try again.'
+      );
       setIsProcessing(false);
     }
   };
 
-  const total = cartTotal * 1.1;
+  const total = Math.round(cartTotal * 1.1);
   const inputClass =
     'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-navy transition-shadow focus:border-premium-blue focus:outline-none focus:ring-2 focus:ring-premium-blue/20';
 
@@ -99,45 +110,46 @@ export default function CheckoutPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-navy">Full Name</label>
-                    <input type="text" name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="John Doe" className={inputClass} />
+                    <input type="text" name="customerName" value={formData.customerName} onChange={handleInputChange} placeholder="John Doe" className={inputClass} required />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-navy">Email Address</label>
-                    <input type="email" name="customerEmail" value={formData.customerEmail} onChange={handleInputChange} placeholder="john@example.com" className={inputClass} />
+                    <input type="email" name="customerEmail" value={formData.customerEmail} onChange={handleInputChange} placeholder="john@example.com" className={inputClass} required />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-navy">Phone Number</label>
-                    <input type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleInputChange} placeholder="+256 700 000 000" className={inputClass} />
+                    <label className="mb-2 block text-sm font-semibold text-navy">Phone Number (Mobile Money)</label>
+                    <input type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleInputChange} placeholder="256770123456" className={inputClass} required />
+                    <p className="mt-2 text-sm text-body">Use your MTN or Airtel number in international format.</p>
                   </div>
                 </div>
               </div>
 
               <div className="card-premium p-8">
                 <h2 className="mb-6 text-xl font-bold text-navy">Payment</h2>
-                <div className="mb-6 rounded-xl border border-premium-blue/20 bg-light-gray p-4">
-                  <p className="font-semibold text-navy">Demo Mode</p>
-                  <p className="text-sm text-body">This is a demo checkout. Use any card details to proceed.</p>
-                </div>
                 <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-navy">Card Number</label>
-                    <input type="text" placeholder="4242 4242 4242 4242" maxLength={19} className={inputClass} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-start gap-4 rounded-xl border border-premium-blue/20 bg-light-gray p-4">
+                    <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-premium-blue" />
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-navy">Expiry</label>
-                      <input type="text" placeholder="MM/YY" className={inputClass} />
+                      <p className="font-semibold text-navy">Paytota — Mobile Money & Cards</p>
+                      <p className="text-sm text-body">
+                        You will be redirected to Paytota to complete payment via MTN Mobile Money, Airtel Money, or card.
+                      </p>
                     </div>
+                  </div>
+                  <div className="flex items-start gap-4 rounded-xl border border-gray-200 p-4">
+                    <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-navy" />
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-navy">CVC</label>
-                      <input type="text" placeholder="123" maxLength={4} className={inputClass} />
+                      <p className="font-semibold text-navy">Secure checkout</p>
+                      <p className="text-sm text-body">
+                        Payments are processed securely by Paytota. Your card details are never stored on our servers.
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
 
               <BrandButton type="submit" variant="primary" size="lg" disabled={isProcessing} className="w-full">
-                {isProcessing ? 'Processing...' : 'Complete Purchase'}
+                {isProcessing ? 'Starting payment...' : `Pay ${formatUgx(total)}`}
               </BrandButton>
             </form>
           </div>
@@ -150,20 +162,20 @@ export default function CheckoutPage() {
                   <div key={item.productId} className="flex justify-between text-sm">
                     <div>
                       <p className="font-semibold text-navy">{item.productName}</p>
-                      <p className="text-body">{item.quantity} × ${item.price.toFixed(2)}</p>
+                      <p className="text-body">{item.quantity} × {formatUgx(item.price)}</p>
                     </div>
-                    <p className="font-semibold text-navy">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="font-semibold text-navy">{formatUgx(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
               <div className="space-y-2 border-b border-gray-100 pb-6 text-sm text-body">
-                <div className="flex justify-between"><span>Subtotal</span><span>${cartTotal.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatUgx(cartTotal)}</span></div>
                 <div className="flex justify-between"><span>Shipping</span><span className="text-premium-blue">FREE</span></div>
-                <div className="flex justify-between"><span>Tax (10%)</span><span>${(cartTotal * 0.1).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Tax (10%)</span><span>{formatUgx(cartTotal * 0.1)}</span></div>
               </div>
               <div className="flex justify-between pt-6">
                 <span className="font-bold text-navy">Total</span>
-                <span className="text-2xl font-extrabold text-navy">${total.toFixed(2)}</span>
+                <span className="text-2xl font-extrabold text-navy">{formatUgx(total)}</span>
               </div>
             </div>
           </div>

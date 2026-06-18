@@ -6,6 +6,8 @@ import { useCart } from '@/lib/cart-context';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
+import ProductImage from '@/components/product-image';
+import { formatUgx } from '@/lib/currency';
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, clearCart, cartTotal } = useCart();
@@ -43,13 +45,17 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-4">
               {cart.map((item) => (
                 <div key={item.productId} className="card-premium flex gap-6 p-6">
-                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-light-gray">
-                    <img src={item.image} alt={item.productName} className="h-full w-full object-cover" />
+                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-gray-100">
+                    <ProductImage
+                      src={item.image}
+                      alt={item.productName}
+                      variant="inline"
+                    />
                   </div>
                   <div className="flex flex-1 flex-col justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                       <h3 className="font-bold text-navy">{item.productName}</h3>
-                      <p className="text-sm text-body">${item.price} each</p>
+                      <p className="text-sm text-body">{formatUgx(item.price)} each</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center rounded-xl border border-gray-200">
@@ -70,7 +76,7 @@ export default function CartPage() {
                         </button>
                       </div>
                       <p className="min-w-[80px] text-right font-bold text-navy">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatUgx(item.price * item.quantity)}
                       </p>
                       <button
                         type="button"
@@ -89,13 +95,13 @@ export default function CartPage() {
               <div className="card-premium sticky top-28 p-8">
                 <h2 className="mb-6 text-xl font-bold text-navy">Order Summary</h2>
                 <div className="space-y-3 border-b border-gray-100 pb-6 text-sm text-body">
-                  <div className="flex justify-between"><span>Subtotal</span><span>${cartTotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Subtotal</span><span>{formatUgx(cartTotal)}</span></div>
                   <div className="flex justify-between"><span>Shipping</span><span className="text-premium-blue font-medium">FREE</span></div>
-                  <div className="flex justify-between"><span>Tax (10%)</span><span>${(cartTotal * 0.1).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Tax (10%)</span><span>{formatUgx(cartTotal * 0.1)}</span></div>
                 </div>
                 <div className="flex justify-between py-6">
                   <span className="font-bold text-navy">Total</span>
-                  <span className="text-2xl font-extrabold text-navy">${total.toFixed(2)}</span>
+                  <span className="text-2xl font-extrabold text-navy">{formatUgx(total)}</span>
                 </div>
                 <BrandButton href="/checkout" variant="primary" className="mb-3 w-full">
                   Proceed to Checkout
