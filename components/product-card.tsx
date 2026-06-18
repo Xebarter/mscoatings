@@ -58,12 +58,12 @@ export default function ProductCard({
             variant="card"
           />
           <div
-            className={`absolute max-w-[calc(100%-1.5rem)] truncate rounded-full font-semibold text-white shadow-sm ${
+            className={`absolute max-w-[calc(100%-1.5rem)] truncate rounded-full font-medium text-white shadow-sm ${
               isCompact
-                ? 'left-2 top-2 px-2 py-0.5 text-[10px]'
+                ? 'left-2 top-2 px-2 py-0.5 text-[9px]'
                 : isAdaptive
-                  ? 'left-2 top-2 px-2 py-0.5 text-[10px] lg:left-4 lg:top-4 lg:px-3 lg:py-1 lg:text-xs'
-                  : 'left-3 top-3 px-2.5 py-1 text-[11px] sm:left-4 sm:top-4 sm:px-3 sm:text-xs'
+                  ? 'left-2 top-2 px-2 py-0.5 text-[9px] lg:left-4 lg:top-4 lg:px-2.5 lg:py-0.5 lg:text-[10px]'
+                  : 'left-3 top-3 px-2 py-0.5 text-[10px] sm:left-4 sm:top-4 sm:px-2.5 sm:py-1 sm:text-[11px]'
             }`}
             style={{ backgroundColor: categoryColor }}
           >
@@ -71,10 +71,10 @@ export default function ProductCard({
           </div>
           {inStock && product.stock <= 5 && !isCompact && (
             <span
-              className={`absolute rounded-full bg-amber-50 font-semibold text-amber-700 ring-1 ring-amber-200 ${
+              className={`absolute rounded-full bg-amber-50 font-medium text-amber-700 ring-1 ring-amber-200 ${
                 isAdaptive
-                  ? 'right-2 top-2 hidden px-2 py-0.5 text-[10px] lg:right-4 lg:top-4 lg:block lg:px-2.5 lg:py-1 lg:text-xs'
-                  : 'right-3 top-3 px-2.5 py-1 text-[11px] sm:right-4 sm:top-4 sm:text-xs'
+                  ? 'right-2 top-2 hidden px-2 py-0.5 text-[9px] lg:right-4 lg:top-4 lg:block lg:px-2.5 lg:py-0.5 lg:text-[10px]'
+                  : 'right-3 top-3 px-2 py-0.5 text-[10px] sm:right-4 sm:top-4 sm:px-2.5 sm:py-1 sm:text-[11px]'
               }`}
             >
               Low stock
@@ -82,7 +82,7 @@ export default function ProductCard({
           )}
           {!inStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-navy/50 backdrop-blur-[1px]">
-              <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-md">
+              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-navy shadow-md sm:px-4 sm:py-2 sm:text-sm">
                 Out of Stock
               </span>
             </div>
@@ -99,22 +99,22 @@ export default function ProductCard({
           }`}
         >
           <h3
-            className={`line-clamp-2 font-bold leading-snug text-navy transition-colors group-hover:text-premium-blue ${
+            className={`line-clamp-2 font-semibold leading-snug text-navy transition-colors group-hover:text-premium-blue ${
               isCompact
-                ? 'mb-1.5 text-sm'
+                ? 'mb-1 text-xs'
                 : isAdaptive
-                  ? 'mb-1.5 text-sm lg:mb-2 lg:text-lg'
-                  : 'mb-1.5 text-base sm:mb-2 sm:text-lg'
+                  ? 'mb-1 text-xs lg:mb-1.5 lg:text-sm'
+                  : 'mb-1.5 text-sm sm:mb-2 sm:text-base'
             }`}
           >
             {product.name}
           </h3>
           {(isAdaptive || !isCompact) && (
             <p
-              className={`flex-1 text-sm leading-snug text-body line-clamp-2 ${
+              className={`flex-1 leading-snug text-body line-clamp-2 ${
                 isAdaptive
-                  ? 'mb-2 hidden lg:mb-3 lg:block'
-                  : 'mb-2 sm:mb-3'
+                  ? 'mb-2 hidden text-xs lg:mb-2.5 lg:block lg:text-sm'
+                  : 'mb-2 text-xs sm:mb-2.5 sm:text-sm'
               }`}
             >
               {product.description}
@@ -132,17 +132,17 @@ export default function ProductCard({
           >
             <div className="min-w-0">
               {!isCompact && !isAdaptive && (
-                <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400 sm:text-[10px]">
                   Price
                 </p>
               )}
               <p
-                className={`font-extrabold text-navy ${
+                className={`font-bold text-navy ${
                   isCompact
-                    ? 'text-base leading-tight'
+                    ? 'text-sm leading-tight'
                     : isAdaptive
-                      ? 'text-base leading-tight lg:text-2xl'
-                      : 'text-xl sm:text-2xl'
+                      ? 'text-sm leading-tight lg:text-base'
+                      : 'text-base leading-tight sm:text-lg'
                 }`}
               >
                 {formatUgx(product.price)}
