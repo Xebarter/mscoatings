@@ -105,7 +105,7 @@ export default function HeroProductShowcase({
     return (
       <div className="relative lg:pb-16">
         <div className="card-premium animate-pulse overflow-hidden p-2">
-          <div className="h-[220px] rounded-xl bg-gray-200 sm:h-[300px] lg:h-[380px]" />
+          <div className="aspect-[4/3] rounded-xl bg-gray-200" />
         </div>
         <div className="card-premium mt-4 animate-pulse p-4 sm:p-5 lg:absolute lg:-bottom-6 lg:-left-6 lg:mt-0 lg:max-w-xs">
           <div className="mb-2 h-8 w-24 rounded bg-gray-200" />
