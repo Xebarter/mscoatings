@@ -29,7 +29,7 @@ interface HeaderProps {
 const navLinks = [
   { href: '/#shop', label: 'Shop', icon: ShoppingBag },
   { href: '/products', label: 'Catalog', icon: LayoutGrid },
-  { href: '/#contact', label: 'Contact', icon: Mail },
+  { href: '/contact', label: 'Contact', icon: Mail },
 ];
 
 export default function Header({ isAdmin = false }: HeaderProps) {

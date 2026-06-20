@@ -11,6 +11,7 @@ import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
 import toast from 'react-hot-toast';
 import { formatUgx } from '@/lib/currency';
+import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface HeroProductShowcaseProps {
   products: Product[];
@@ -138,7 +139,7 @@ export default function HeroProductShowcase({
           <ProductImage
             key={activeProduct.id}
             src={activeProduct.image}
-            alt={activeProduct.name}
+            alt={buildProductImageAlt(activeProduct)}
             variant="hero"
           />
 

@@ -1,7 +1,7 @@
 import admin from 'firebase-admin';
 
 function initializeFirebaseAdmin() {
-  if (admin.apps.length > 0) {
+  if (admin.apps?.length > 0) {
     return admin.app();
   }
 

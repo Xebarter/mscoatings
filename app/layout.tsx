@@ -3,7 +3,18 @@ import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import LayoutClient from '@/components/layout-client'
+import StructuredData from '@/components/structured-data'
 import { BRAND_ASSETS, BRAND_NAME } from '@/lib/brand'
+import {
+  buildOrganizationSchema,
+  buildWebSiteSchema,
+} from '@/lib/seo/json-ld'
+import {
+  buildPageTitle,
+  DEFAULT_SITE_DESCRIPTION,
+  getSiteUrl,
+  SEO_KEYWORDS,
+} from '@/lib/seo/site'
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta',
@@ -12,14 +23,26 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: 'swap',
 })
 
-const siteDescription =
-  'Premium automotive coatings and industrial paint solutions engineered for durability, innovation, and exceptional finishes.'
-
 export const metadata: Metadata = {
-  title: `${BRAND_NAME} | Professional Automotive & Industrial Coatings`,
-  description: siteDescription,
+  metadataBase: new URL(getSiteUrl()),
+  title: buildPageTitle('Professional Automotive & Industrial Coatings'),
+  description: DEFAULT_SITE_DESCRIPTION,
   applicationName: BRAND_NAME,
+  keywords: [...SEO_KEYWORDS],
   manifest: BRAND_ASSETS.webManifest,
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
       { url: BRAND_ASSETS.faviconIco },
@@ -31,8 +54,10 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: BRAND_NAME,
-    title: `${BRAND_NAME} | Professional Automotive & Industrial Coatings`,
-    description: siteDescription,
+    title: buildPageTitle('Professional Automotive & Industrial Coatings'),
+    description: DEFAULT_SITE_DESCRIPTION,
+    url: '/',
+    locale: 'en_UG',
     images: [
       {
         url: BRAND_ASSETS.logoLarge,
@@ -43,9 +68,9 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: 'summary',
-    title: `${BRAND_NAME} | Professional Automotive & Industrial Coatings`,
-    description: siteDescription,
+    card: 'summary_large_image',
+    title: buildPageTitle('Professional Automotive & Industrial Coatings'),
+    description: DEFAULT_SITE_DESCRIPTION,
     images: [BRAND_ASSETS.logoLarge],
   },
 }
@@ -67,6 +92,12 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body className="font-sans" suppressHydrationWarning>
+        <StructuredData
+          data={{
+            '@context': 'https://schema.org',
+            '@graph': [buildOrganizationSchema(), buildWebSiteSchema()],
+          }}
+        />
         <LayoutClient>
           {children}
         </LayoutClient>

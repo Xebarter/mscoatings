@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Product } from '@/lib/firestore';
 import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
+import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface SearchBarProps {
   products: Product[];
@@ -78,7 +79,7 @@ export default function SearchBar({ products }: SearchBarProps) {
                   <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl ring-1 ring-gray-100">
                     <ProductImage
                       src={product.image}
-                      alt={product.name}
+                      alt={buildProductImageAlt(product)}
                       variant="inline"
                     />
                   </div>

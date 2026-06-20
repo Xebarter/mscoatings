@@ -8,6 +8,8 @@ interface ProductImageProps {
   variant?: ProductImageVariant;
   className?: string;
   imageClassName?: string;
+  priority?: boolean;
+  itemProp?: string;
 }
 
 const variantStyles: Record<
@@ -46,6 +48,8 @@ export default function ProductImage({
   variant = 'card',
   className,
   imageClassName,
+  priority = false,
+  itemProp,
 }: ProductImageProps) {
   const styles = variantStyles[variant];
 
@@ -54,9 +58,12 @@ export default function ProductImage({
       <img
         src={src}
         alt={alt}
+        title={alt}
         className={cn(styles.image, imageClassName)}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
         decoding="async"
+        fetchPriority={priority ? 'high' : 'auto'}
+        itemProp={itemProp}
       />
     </div>
   );

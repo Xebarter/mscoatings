@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { ArrowRight, ShoppingCart } from 'lucide-react';
 import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
+import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface ProductCardProps {
   product: Product;
@@ -27,6 +28,7 @@ export default function ProductCard({
   const { addToCart } = useCart();
   const categoryColor = getCategoryColor(product.category);
   const inStock = product.stock > 0;
+  const imageAlt = buildProductImageAlt(product);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,7 +56,7 @@ export default function ProductCard({
         <div className="relative border-b border-gray-100">
           <ProductImage
             src={product.image}
-            alt={product.name}
+            alt={imageAlt}
             variant="card"
           />
           <div
