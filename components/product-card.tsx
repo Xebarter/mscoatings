@@ -15,12 +15,14 @@ interface ProductCardProps {
   product: Product;
   compact?: boolean;
   density?: 'default' | 'compact' | 'adaptive';
+  highlighted?: boolean;
 }
 
 export default function ProductCard({
   product,
   compact = false,
   density = 'default',
+  highlighted = false,
 }: ProductCardProps) {
   const isCompact = compact || density === 'compact';
   const isAdaptive = density === 'adaptive';
@@ -51,7 +53,14 @@ export default function ProductCard({
   };
 
   return (
-    <article className="card-premium group flex h-full flex-col overflow-hidden">
+    <article
+      id={`product-${product.id}`}
+      className={`card-premium group flex h-full scroll-mt-28 flex-col overflow-hidden transition-shadow duration-500 ${
+        highlighted
+          ? 'ring-2 ring-premium-blue shadow-[0_0_0_4px_rgba(0,119,200,0.15)]'
+          : ''
+      }`}
+    >
       <Link href={`/product/${product.id}`} className="flex h-full flex-col">
         <div className="relative border-b border-gray-100">
           <ProductImage

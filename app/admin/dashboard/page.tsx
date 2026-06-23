@@ -13,12 +13,15 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  FileDown,
   Package,
   Plus,
+  QrCode,
   ShoppingBag,
   TrendingUp,
   Users,
 } from 'lucide-react';
+import { downloadAllProductQrPdf, downloadProductQrPng } from '@/lib/product-qr';
 
 const validTabs: AdminSection[] = ['overview', 'products', 'orders', 'analytics'];
 
@@ -56,6 +59,10 @@ function DashboardContent() {
     tabParam && validTabs.includes(tabParam) ? tabParam : 'overview';
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloadingAllQr, setIsDownloadingAllQr] = useState(false);
+  const [downloadingQrProductId, setDownloadingQrProductId] = useState<string | null>(
+    null
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [analyticsData, setAnalyticsData] = useState({
@@ -103,6 +110,32 @@ function DashboardContent() {
     }
   };
 
+  const handleDownloadProductQr = async (product: Product) => {
+    setDownloadingQrProductId(product.id);
+    try {
+      await downloadProductQrPng(product);
+      toast.success(`QR code downloaded for ${product.name}`);
+    } catch (error) {
+      console.error('Error downloading product QR:', error);
+      toast.error('Failed to download QR code');
+    } finally {
+      setDownloadingQrProductId(null);
+    }
+  };
+
+  const handleDownloadAllProductQr = async () => {
+    setIsDownloadingAllQr(true);
+    try {
+      await downloadAllProductQrPdf(products);
+      toast.success('PDF with all product QR codes downloaded');
+    } catch (error) {
+      console.error('Error downloading product QR PDF:', error);
+      toast.error('Failed to download QR codes PDF');
+    } finally {
+      setIsDownloadingAllQr(false);
+    }
+  };
+
   const pageMeta: Record<AdminSection, { title: string; subtitle: string }> = {
     overview: {
       title: 'Dashboard Overview',
@@ -131,14 +164,27 @@ function DashboardContent() {
       subtitle={subtitle}
       actions={
         activeTab === 'products' ? (
-          <button
-            type="button"
-            onClick={() => router.push('/admin/products/new')}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus size={18} />
-            Add Product
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {products.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDownloadAllProductQr}
+                disabled={isDownloadingAllQr}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FileDown size={18} />
+                {isDownloadingAllQr ? 'Preparing PDF...' : 'Download all QR codes'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => router.push('/admin/products/new')}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <Plus size={18} />
+              Add Product
+            </button>
+          </div>
         ) : undefined
       }
     >
@@ -317,13 +363,25 @@ function DashboardContent() {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/admin/products/${product.id}`)}
-                              className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                            >
-                              Edit
-                            </button>
+                            <div className="flex items-center justify-end gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadProductQr(product)}
+                                disabled={downloadingQrProductId === product.id}
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                                title="Download QR code"
+                              >
+                                <QrCode size={16} />
+                                {downloadingQrProductId === product.id ? 'Saving...' : 'QR'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/admin/products/${product.id}`)}
+                                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                              >
+                                Edit
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

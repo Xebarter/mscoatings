@@ -20,6 +20,10 @@ export function getProductUrl(productId: string): string {
   return absoluteUrl(`/product/${productId}`);
 }
 
+export function getProductShopUrl(productId: string): string {
+  return absoluteUrl(`/shop?product=${encodeURIComponent(productId)}`);
+}
+
 export const SEO_KEYWORDS = [
   'MS Coatings',
   'MS Coatings Uganda',
