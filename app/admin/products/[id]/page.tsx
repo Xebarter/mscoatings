@@ -9,6 +9,7 @@ import {
   deleteProduct,
 } from '@/lib/firestore';
 import { uploadProductImage, validateProductImage } from '@/lib/storage';
+import { requestCatalogRevalidation } from '@/lib/request-catalog-revalidation';
 import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
@@ -203,10 +204,12 @@ export default function EditProductPage() {
       };
 
       if (isNewProduct) {
-        await addProduct(productPayload);
+        const newProductId = await addProduct(productPayload);
+        await requestCatalogRevalidation(newProductId);
         toast.success('Product created successfully!');
       } else {
         await updateProduct(productId, productPayload);
+        await requestCatalogRevalidation(productId);
         toast.success('Product updated successfully!');
       }
 
@@ -228,6 +231,7 @@ export default function EditProductPage() {
 
     try {
       await deleteProduct(productId);
+      await requestCatalogRevalidation(productId);
       toast.success('Product deleted successfully!');
       router.push('/admin/dashboard?tab=products');
     } catch (error) {

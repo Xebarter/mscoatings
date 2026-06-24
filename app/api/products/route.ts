@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateCatalog } from '@/lib/revalidate-catalog';
 import {
   collection,
   addDoc,
@@ -77,6 +78,8 @@ export async function POST(request: NextRequest) {
       createdAt: Timestamp.now(),
     });
 
+    revalidateCatalog(docRef.id);
+
     return NextResponse.json(
       {
         id: docRef.id,
@@ -114,6 +117,8 @@ export async function PUT(request: NextRequest) {
     const docRef = doc(db, 'products', id);
     await updateDoc(docRef, updateData);
 
+    revalidateCatalog(id);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating product:', error);
@@ -139,6 +144,8 @@ export async function DELETE(request: NextRequest) {
 
     const docRef = doc(db, 'products', productId);
     await deleteDoc(docRef);
+
+    revalidateCatalog(productId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

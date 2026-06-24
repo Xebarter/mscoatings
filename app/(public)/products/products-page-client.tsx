@@ -1,17 +1,38 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import ProductCard from '@/components/product-card';
 import Footer from '@/components/footer';
 import SearchBar from '@/components/search-bar';
+import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
 interface ProductsPageClientProps {
   products: SeoProduct[];
 }
 
-export default function ProductsPageClient({ products }: ProductsPageClientProps) {
+export default function ProductsPageClient({
+  products: initialProducts,
+}: ProductsPageClientProps) {
+  const [products, setProducts] = useState(initialProducts);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchLiveCatalogProducts()
+      .then((liveProducts) => {
+        if (!cancelled) {
+          setProducts(liveProducts);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-100 bg-light-gray">

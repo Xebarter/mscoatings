@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
@@ -11,18 +11,41 @@ import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
+import { mapApiProductToSeoProduct } from '@/lib/catalog-products';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
 interface ProductDetailClientProps {
   product: SeoProduct;
 }
 
-export default function ProductDetailClient({ product }: ProductDetailClientProps) {
+export default function ProductDetailClient({
+  product: initialProduct,
+}: ProductDetailClientProps) {
+  const [product, setProduct] = useState(initialProduct);
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const { addToCart } = useCart();
   const categoryColor = getCategoryColor(product.category);
   const imageAlt = buildProductImageAlt(product);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/products?id=${encodeURIComponent(initialProduct.id)}`, {
+      cache: 'no-store',
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const liveProduct = mapApiProductToSeoProduct(data);
+        if (liveProduct) setProduct(liveProduct);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProduct.id]);
 
   const handleAddToCart = async () => {
     setIsAdding(true);

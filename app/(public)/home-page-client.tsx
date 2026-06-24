@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import ProductCard from '@/components/product-card';
@@ -12,6 +12,7 @@ import SearchBar from '@/components/search-bar';
 import { BRAND_ASSETS } from '@/lib/brand';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
+import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
 const TRUST_ITEMS = ['Fast checkout', 'In stock items', 'WhatsApp support'];
@@ -20,8 +21,25 @@ interface HomePageClientProps {
   products: SeoProduct[];
 }
 
-export default function HomePageClient({ products }: HomePageClientProps) {
+export default function HomePageClient({ products: initialProducts }: HomePageClientProps) {
+  const [products, setProducts] = useState(initialProducts);
   const [activeCategory, setActiveCategory] = useState('All');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchLiveCatalogProducts()
+      .then((liveProducts) => {
+        if (!cancelled) {
+          setProducts(liveProducts);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const featuredProduct = products.find(
     (product) => product.image?.trim() && product.stock > 0

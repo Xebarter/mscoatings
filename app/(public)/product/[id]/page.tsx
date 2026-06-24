@@ -13,7 +13,7 @@ import {
 import StructuredData from '@/components/structured-data';
 import ProductDetailClient from './product-detail-client';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
