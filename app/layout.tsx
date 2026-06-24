@@ -5,14 +5,11 @@ import './globals.css'
 import LayoutClient from '@/components/layout-client'
 import StructuredData from '@/components/structured-data'
 import { BRAND_ASSETS, BRAND_NAME } from '@/lib/brand'
+import { buildGlobalSchemaGraph } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 import {
-  buildOrganizationSchema,
-  buildWebSiteSchema,
-} from '@/lib/seo/json-ld'
-import {
-  buildPageTitle,
   DEFAULT_SITE_DESCRIPTION,
-  getSiteUrl,
+  HOME_TITLE,
   SEO_KEYWORDS,
 } from '@/lib/seo/site'
 
@@ -24,25 +21,19 @@ const plusJakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(getSiteUrl()),
-  title: buildPageTitle('Professional Automotive & Industrial Coatings'),
-  description: DEFAULT_SITE_DESCRIPTION,
+  ...buildPageMetadata({
+    title: HOME_TITLE,
+    description: DEFAULT_SITE_DESCRIPTION,
+    path: '/',
+    keywords: [...SEO_KEYWORDS],
+  }),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'http://localhost:3000'
+  ),
   applicationName: BRAND_NAME,
-  keywords: [...SEO_KEYWORDS],
   manifest: BRAND_ASSETS.webManifest,
-  alternates: {
-    canonical: '/',
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
   icons: {
     icon: [
       { url: BRAND_ASSETS.faviconIco },
@@ -51,28 +42,9 @@ export const metadata: Metadata = {
     ],
     apple: BRAND_ASSETS.appleTouchIcon,
   },
-  openGraph: {
-    type: 'website',
-    siteName: BRAND_NAME,
-    title: buildPageTitle('Professional Automotive & Industrial Coatings'),
-    description: DEFAULT_SITE_DESCRIPTION,
-    url: '/',
-    locale: 'en_UG',
-    images: [
-      {
-        url: BRAND_ASSETS.logoLarge,
-        width: 512,
-        height: 512,
-        alt: BRAND_NAME,
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: buildPageTitle('Professional Automotive & Industrial Coatings'),
-    description: DEFAULT_SITE_DESCRIPTION,
-    images: [BRAND_ASSETS.logoLarge],
-  },
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
 }
 
 export const viewport: Viewport = {
@@ -87,17 +59,12 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="en-UG"
       className={`light ${plusJakarta.variable}`}
       data-scroll-behavior="smooth"
     >
       <body className="font-sans" suppressHydrationWarning>
-        <StructuredData
-          data={{
-            '@context': 'https://schema.org',
-            '@graph': [buildOrganizationSchema(), buildWebSiteSchema()],
-          }}
-        />
+        <StructuredData data={buildGlobalSchemaGraph()} />
         <LayoutClient>
           {children}
         </LayoutClient>

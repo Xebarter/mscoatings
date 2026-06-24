@@ -4,7 +4,7 @@ export function revalidateCatalog(productId?: string) {
   revalidatePath('/');
   revalidatePath('/products', 'layout');
   revalidatePath('/products');
-  revalidatePath('/shop');
+  revalidatePath('/products/category', 'layout');
   revalidatePath('/sitemap.xml');
 
   if (productId) {

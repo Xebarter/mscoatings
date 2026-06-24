@@ -2,24 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ShoppingCart, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import toast from 'react-hot-toast';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
+import Breadcrumbs from '@/components/breadcrumbs';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 import { mapApiProductToSeoProduct } from '@/lib/catalog-products';
-import type { SeoProduct } from '@/lib/seo/json-ld';
+import { getCategoryPath } from '@/lib/seo/categories';
+import type { BreadcrumbItem, SeoProduct } from '@/lib/seo/json-ld';
 
 interface ProductDetailClientProps {
   product: SeoProduct;
+  breadcrumbs: BreadcrumbItem[];
 }
 
 export default function ProductDetailClient({
   product: initialProduct,
+  breadcrumbs,
 }: ProductDetailClientProps) {
   const [product, setProduct] = useState(initialProduct);
   const [quantity, setQuantity] = useState(1);
@@ -70,13 +74,7 @@ export default function ProductDetailClient({
     <div className="min-h-screen bg-white">
       <div className="border-b border-gray-100 bg-light-gray">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-2 text-sm font-medium text-premium-blue transition-colors hover:text-cyan"
-          >
-            <ArrowLeft size={18} />
-            Back to Products
-          </Link>
+          <Breadcrumbs items={breadcrumbs} />
         </div>
       </div>
 
@@ -92,12 +90,13 @@ export default function ProductDetailClient({
           </div>
 
           <div>
-            <span
-              className="mb-4 inline-block rounded-full px-4 py-1.5 text-xs font-semibold text-white"
+            <Link
+              href={getCategoryPath(product.category)}
+              className="mb-4 inline-block rounded-full px-4 py-1.5 text-xs font-semibold text-white hover:underline"
               style={{ backgroundColor: categoryColor }}
             >
               {product.category}
-            </span>
+            </Link>
             <h1 className="mb-4 text-3xl font-extrabold text-navy sm:text-4xl">
               {product.name}
             </h1>

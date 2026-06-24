@@ -27,8 +27,8 @@ interface HeaderProps {
 }
 
 const navLinks = [
-  { href: '/shop', label: 'Shop', icon: ShoppingBag },
-  { href: '/products', label: 'Catalog', icon: LayoutGrid },
+  { href: '/products', label: 'Shop', icon: ShoppingBag },
+  { href: '/about', label: 'About', icon: LayoutGrid },
   { href: '/contact', label: 'Contact', icon: Mail },
 ];
 

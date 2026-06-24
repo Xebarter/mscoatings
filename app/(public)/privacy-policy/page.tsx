@@ -2,20 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
-import { buildPageTitle } from '@/lib/seo/site';
+import { buildPageMetadata } from '@/lib/seo/metadata';
 
-export const metadata: Metadata = {
-  title: buildPageTitle('Privacy Policy'),
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Privacy Policy',
   description:
-    'Learn how MS Coatings collects, uses, and protects your personal information when you use our website and services.',
-  alternates: {
-    canonical: '/privacy-policy',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+    'Learn how MS Coatings collects, uses, and protects your personal information when you use our website and services in Uganda.',
+  path: '/privacy-policy',
+});
 
 function Section({
   id,

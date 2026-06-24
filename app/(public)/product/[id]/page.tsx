@@ -5,11 +5,12 @@ import {
   buildProductImageAlt,
   toAbsoluteImageUrl,
 } from '@/lib/seo/images';
-import { buildProductPageGraph } from '@/lib/seo/json-ld';
 import {
-  buildPageTitle,
-  getProductUrl,
-} from '@/lib/seo/site';
+  buildProductPageGraph,
+  type BreadcrumbItem,
+} from '@/lib/seo/json-ld';
+import { buildPageMetadata } from '@/lib/seo/metadata';
+import { buildPageTitle, getProductUrl, SEO_KEYWORDS } from '@/lib/seo/site';
 import StructuredData from '@/components/structured-data';
 import ProductDetailClient from './product-detail-client';
 
@@ -27,47 +28,40 @@ export async function generateMetadata({
 
   if (!product) {
     return {
-      title: 'Product Not Found',
+      title: buildPageTitle('Product Not Found'),
       robots: { index: false, follow: false },
     };
   }
 
   const imageUrl = toAbsoluteImageUrl(product.image);
-  const title = buildPageTitle(product.name);
   const description =
     product.description ||
-    `${product.name} — ${product.category} from MS Coatings.`;
+    `Buy ${product.name} — ${product.category} coating from MS Coatings Uganda. Professional automotive and industrial paint supplies with online ordering.`;
   const alt = buildProductImageAlt(product);
-  const canonical = getProductUrl(product.id);
 
   return {
-    title,
-    description,
-    alternates: { canonical },
+    ...buildPageMetadata({
+      title: product.name,
+      description,
+      path: `/product/${product.id}`,
+      keywords: [
+        ...SEO_KEYWORDS,
+        product.name,
+        product.category,
+        `${product.name} Uganda`,
+        `buy ${product.name}`,
+      ],
+      image: imageUrl ?? undefined,
+      imageAlt: alt,
+    }),
     openGraph: {
       type: 'website',
       title: product.name,
       description,
-      url: canonical,
+      url: getProductUrl(product.id),
       images: imageUrl
         ? [{ url: imageUrl, alt, width: 1200, height: 1200 }]
         : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: product.name,
-      description,
-      images: imageUrl ? [imageUrl] : undefined,
-    },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      },
     },
   };
 }
@@ -80,10 +74,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const breadcrumbs: BreadcrumbItem[] = [
+    { name: 'Home', path: '/' },
+    { name: 'Products', path: '/products' },
+    { name: product.name, path: `/product/${product.id}` },
+  ];
+
   return (
     <>
       <StructuredData data={buildProductPageGraph(product)} />
-      <ProductDetailClient product={product} />
+      <ProductDetailClient product={product} breadcrumbs={breadcrumbs} />
     </>
   );
 }

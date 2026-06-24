@@ -2,20 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
-import { buildPageTitle } from '@/lib/seo/site';
+import { buildPageMetadata } from '@/lib/seo/metadata';
 
-export const metadata: Metadata = {
-  title: buildPageTitle('Terms of Service'),
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Terms of Service',
   description:
-    'Read the MS Coatings Terms of Service governing your use of our website, orders, shipping, returns, and product purchases.',
-  alternates: {
-    canonical: '/terms-of-service',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+    'Read the MS Coatings Terms of Service governing your use of our website, orders, shipping, returns, and product purchases in Uganda.',
+  path: '/terms-of-service',
+});
 
 function Section({
   id,

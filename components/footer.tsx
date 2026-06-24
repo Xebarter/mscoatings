@@ -1,8 +1,7 @@
-'use client';
-
 import Link from 'next/link';
 import { Mail, Phone, MapPin, Share2, Globe, AtSign } from 'lucide-react';
 import Logo from '@/components/logo';
+import { MARKETING_CATEGORIES } from '@/lib/seo/categories';
 
 const socialLinks = [
   { href: '#', label: 'Facebook', icon: Share2 },
@@ -45,10 +44,16 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3 text-sm">
               <li><Link href="/products" className="transition-colors hover:text-cyan">All Products</Link></li>
-              <li><Link href="/products" className="transition-colors hover:text-cyan">Clear Coats</Link></li>
-              <li><Link href="/products" className="transition-colors hover:text-cyan">Primers</Link></li>
-              <li><Link href="/products" className="transition-colors hover:text-cyan">Top Coats</Link></li>
-              <li><Link href="/products" className="transition-colors hover:text-cyan">Industrial Finishes</Link></li>
+              {MARKETING_CATEGORIES.map((category) => (
+                <li key={category.slug}>
+                  <Link
+                    href={`/products/category/${category.slug}`}
+                    className="transition-colors hover:text-cyan"
+                  >
+                    {category.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -61,8 +66,6 @@ export default function Footer() {
               <li><Link href="/contact" className="transition-colors hover:text-cyan">Contact Us</Link></li>
               <li><Link href="/about#solutions" className="transition-colors hover:text-cyan">Solutions</Link></li>
               <li><Link href="/contact#support" className="transition-colors hover:text-cyan">Technical Support</Link></li>
-              <li><a href="#" className="transition-colors hover:text-cyan">Distributor Network</a></li>
-              <li><a href="#" className="transition-colors hover:text-cyan">Careers</a></li>
             </ul>
           </div>
 

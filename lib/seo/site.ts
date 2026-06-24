@@ -21,24 +21,41 @@ export function getProductUrl(productId: string): string {
 }
 
 export function getProductShopUrl(productId: string): string {
-  return absoluteUrl(`/shop?product=${encodeURIComponent(productId)}`);
+  return absoluteUrl(`/products?product=${encodeURIComponent(productId)}`);
 }
+
+export const HOME_TITLE =
+  'Automotive & Industrial Coatings Uganda | Buy Online';
+
+export const DEFAULT_SITE_DESCRIPTION =
+  'MS Coatings supplies professional automotive and industrial coatings, primers, clear coats, and finishing systems in Uganda. Shop online with fast checkout and nationwide delivery.';
 
 export const SEO_KEYWORDS = [
   'MS Coatings',
   'MS Coatings Uganda',
-  'automotive coatings',
-  'industrial paint',
-  'automotive refinish',
+  'MS Coatings shop',
+  'mscoatings.shop',
+  'automotive coatings Uganda',
+  'industrial paint Uganda',
+  'automotive refinish Uganda',
+  'car paint Uganda',
+  'clear coat Uganda',
+  '2K clear coat',
+  'automotive primer Uganda',
+  'body shop paint supplies',
+  'industrial coatings Kampala',
+  'paint shop Uganda',
+  'automotive paint supplier Uganda',
   'primers',
   'clear coat',
   'topcoat',
+  'thinners',
+  'nitrocellulous paint',
+  'acrylic paint',
   'professional coatings',
-  'car paint Uganda',
+  'fleet paint supplies',
+  'collision repair coatings',
 ] as const;
-
-export const DEFAULT_SITE_DESCRIPTION =
-  'MS Coatings supplies professional automotive and industrial coatings, primers, clear coats, and finishing systems in Uganda. Shop online with fast checkout.';
 
 export function buildPageTitle(title: string): string {
   return `${title} | ${BRAND_NAME}`;

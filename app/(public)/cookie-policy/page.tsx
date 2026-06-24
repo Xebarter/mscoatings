@@ -2,20 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
-import { buildPageTitle } from '@/lib/seo/site';
+import { buildPageMetadata } from '@/lib/seo/metadata';
 
-export const metadata: Metadata = {
-  title: buildPageTitle('Cookie Policy'),
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Cookie Policy',
   description:
     'Learn how MS Coatings uses cookies and similar technologies on our website, and how you can manage your preferences.',
-  alternates: {
-    canonical: '/cookie-policy',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+  path: '/cookie-policy',
+});
 
 function Section({
   id,

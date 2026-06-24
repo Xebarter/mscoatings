@@ -14,22 +14,24 @@ import {
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ContactForm from '@/components/contact-form';
+import StructuredData from '@/components/structured-data';
 import { BRAND_NAME } from '@/lib/brand';
-import { buildPageTitle, DEFAULT_SITE_DESCRIPTION } from '@/lib/seo/site';
+import { buildContactPageSchema } from '@/lib/seo/json-ld';
+import { buildPageMetadata } from '@/lib/seo/metadata';
+import { SEO_KEYWORDS } from '@/lib/seo/site';
 
-export const metadata: Metadata = {
-  title: buildPageTitle('Contact Us'),
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Contact MS Coatings Uganda',
   description:
-    'Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone, email, and WhatsApp available.',
-  alternates: {
-    canonical: '/contact',
-  },
-  openGraph: {
-    title: buildPageTitle('Contact Us'),
-    description: DEFAULT_SITE_DESCRIPTION,
-    url: '/contact',
-  },
-};
+    'Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone +256 775 305 294, email, and WhatsApp available.',
+  path: '/contact',
+  keywords: [
+    ...SEO_KEYWORDS,
+    'contact MS Coatings',
+    'paint supplier contact Uganda',
+    'automotive coatings support Kampala',
+  ],
+});
 
 const CONTACT_METHODS = [
   {
@@ -110,6 +112,8 @@ const FAQ_ITEMS = [
 
 export default function ContactPage() {
   return (
+    <>
+      <StructuredData data={buildContactPageSchema()} />
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-100 bg-light-gray">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
@@ -287,5 +291,6 @@ export default function ContactPage() {
 
       <Footer />
     </div>
+    </>
   );
 }

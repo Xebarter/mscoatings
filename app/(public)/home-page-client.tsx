@@ -13,6 +13,7 @@ import { BRAND_ASSETS } from '@/lib/brand';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
+import { HOME_FAQS } from '@/lib/seo/faqs';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
 const TRUST_ITEMS = ['Fast checkout', 'In stock items', 'WhatsApp support'];
@@ -251,6 +252,29 @@ export default function HomePageClient({ products: initialProducts }: HomePageCl
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="border-t border-gray-100 bg-light-gray py-10 sm:py-14">
+        <div className="mx-auto max-w-3xl px-5 sm:px-6">
+          <h2 className="mb-6 text-center text-2xl font-extrabold text-navy sm:text-3xl">
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-4">
+            {HOME_FAQS.map((faq) => (
+              <details
+                key={faq.question}
+                className="card-premium group p-4 sm:p-5"
+              >
+                <summary className="cursor-pointer list-none font-semibold text-navy marker:content-none [&::-webkit-details-marker]:hidden">
+                  {faq.question}
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-body sm:text-base">
+                  {faq.answer}
+                </p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 

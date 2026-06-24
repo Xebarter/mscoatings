@@ -17,22 +17,25 @@ import {
 } from 'lucide-react';
 import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
+import StructuredData from '@/components/structured-data';
 import { BRAND_ASSETS, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
-import { buildPageTitle, DEFAULT_SITE_DESCRIPTION } from '@/lib/seo/site';
+import { ABOUT_FAQS } from '@/lib/seo/faqs';
+import { buildAboutPageSchema } from '@/lib/seo/json-ld';
+import { buildPageMetadata } from '@/lib/seo/metadata';
+import { SEO_KEYWORDS } from '@/lib/seo/site';
 
-export const metadata: Metadata = {
-  title: buildPageTitle('About Us'),
+export const metadata: Metadata = buildPageMetadata({
+  title: 'About MS Coatings Uganda',
   description:
-    'Learn about MS Coatings — Uganda\'s trusted supplier of professional automotive and industrial coating systems since 2019.',
-  alternates: {
-    canonical: '/about',
-  },
-  openGraph: {
-    title: buildPageTitle('About Us'),
-    description: DEFAULT_SITE_DESCRIPTION,
-    url: '/about',
-  },
-};
+    'Learn about MS Coatings — Uganda\'s trusted supplier of professional automotive and industrial coating systems since 2019. Primers, clear coats, and nationwide delivery.',
+  path: '/about',
+  keywords: [
+    ...SEO_KEYWORDS,
+    'about MS Coatings',
+    'paint supplier Uganda',
+    'automotive coatings company Kampala',
+  ],
+});
 
 const VALUES = [
   {
@@ -109,6 +112,8 @@ const PROCESS_STEPS = [
 
 export default function AboutPage() {
   return (
+    <>
+      <StructuredData data={buildAboutPageSchema(ABOUT_FAQS)} />
     <div className="min-h-screen bg-white">
       <header className="relative overflow-hidden border-b border-gray-100 bg-light-gray">
         <div className="absolute inset-0 bg-gradient-to-br from-premium-blue/5 via-transparent to-cyan/5" />
@@ -488,5 +493,6 @@ export default function AboutPage() {
 
       <Footer />
     </div>
+    </>
   );
 }
