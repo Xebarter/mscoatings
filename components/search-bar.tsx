@@ -3,13 +3,13 @@
 import { useState, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { Product } from '@/lib/firestore';
+import type { SeoProduct } from '@/lib/seo/json-ld';
 import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface SearchBarProps {
-  products: Product[];
+  products: SeoProduct[];
 }
 
 export default function SearchBar({ products }: SearchBarProps) {

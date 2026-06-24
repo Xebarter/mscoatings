@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ShoppingBag, ShoppingCart } from 'lucide-react';
-import { Product } from '@/lib/firestore';
+import type { SeoProduct } from '@/lib/seo/json-ld';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import BrandButton from '@/components/brand-button';
@@ -14,13 +14,11 @@ import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface HeroProductShowcaseProps {
-  products: Product[];
-  loading: boolean;
+  products: SeoProduct[];
 }
 
 export default function HeroProductShowcase({
   products,
-  loading,
 }: HeroProductShowcaseProps) {
   const router = useRouter();
   const { addToCart } = useCart();
@@ -101,20 +99,6 @@ export default function HeroProductShowcase({
       setIsAdding(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="relative lg:pb-16">
-        <div className="card-premium animate-pulse overflow-hidden p-2">
-          <div className="aspect-[4/3] rounded-xl bg-gray-200" />
-        </div>
-        <div className="card-premium mt-4 animate-pulse p-4 sm:p-5 lg:absolute lg:-bottom-6 lg:-left-6 lg:mt-0 lg:max-w-xs">
-          <div className="mb-2 h-8 w-24 rounded bg-gray-200" />
-          <div className="h-4 w-40 rounded bg-gray-100" />
-        </div>
-      </div>
-    );
-  }
 
   if (!activeProduct) {
     return (

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Product } from '@/lib/firestore';
+import type { SeoProduct } from '@/lib/seo/json-ld';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 
 interface ProductCardProps {
-  product: Product;
+  product: SeoProduct;
   compact?: boolean;
   density?: 'default' | 'compact' | 'adaptive';
   highlighted?: boolean;
