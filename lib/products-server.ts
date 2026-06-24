@@ -1,9 +1,12 @@
-import { getAdminFirestore } from '@/lib/firebase-admin';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { SeoProduct } from '@/lib/seo/json-ld';
+
+const productsCollection = collection(db, 'products');
 
 function mapProductDoc(
   id: string,
-  data: FirebaseFirestore.DocumentData
+  data: Record<string, unknown>
 ): SeoProduct {
   return {
     id,
@@ -18,11 +21,10 @@ function mapProductDoc(
 
 export async function getAllProductsServer(): Promise<SeoProduct[]> {
   try {
-    const db = getAdminFirestore();
-    const snapshot = await db.collection('products').get();
+    const snapshot = await getDocs(productsCollection);
 
     return snapshot.docs
-      .map((doc) => mapProductDoc(doc.id, doc.data()))
+      .map((productDoc) => mapProductDoc(productDoc.id, productDoc.data()))
       .filter((product) => product.name && product.image);
   } catch (error) {
     console.error('Failed to fetch products for SEO:', error);
@@ -34,12 +36,11 @@ export async function getProductByIdServer(
   productId: string
 ): Promise<SeoProduct | null> {
   try {
-    const db = getAdminFirestore();
-    const snapshot = await db.collection('products').doc(productId).get();
+    const snapshot = await getDoc(doc(db, 'products', productId));
 
-    if (!snapshot.exists) return null;
+    if (!snapshot.exists()) return null;
 
-    const product = mapProductDoc(snapshot.id, snapshot.data() ?? {});
+    const product = mapProductDoc(snapshot.id, snapshot.data());
     if (!product.name) return null;
 
     return product;
