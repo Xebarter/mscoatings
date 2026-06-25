@@ -9,6 +9,7 @@ import { buildGlobalSchemaGraph } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 import {
   DEFAULT_SITE_DESCRIPTION,
+  getSiteUrl,
   HOME_TITLE,
   SEO_KEYWORDS,
 } from '@/lib/seo/site'
@@ -27,11 +28,7 @@ export const metadata: Metadata = {
     path: '/',
     keywords: [...SEO_KEYWORDS],
   }),
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      'http://localhost:3000'
-  ),
+  metadataBase: new URL(getSiteUrl()),
   applicationName: BRAND_NAME,
   manifest: BRAND_ASSETS.webManifest,
   icons: {

@@ -8,7 +8,7 @@ export function getSiteUrl(): string {
     process.env.NEXT_PUBLIC_APP_URL ??
     DEFAULT_SITE_URL;
 
-  return url.replace(/\/+$/, '');
+  return url.trim().replace(/\/+$/, '');
 }
 
 export function absoluteUrl(path: string): string {
