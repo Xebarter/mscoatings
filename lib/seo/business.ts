@@ -29,5 +29,7 @@ export const BUSINESS_INFO = {
   paymentAccepted: 'Cash, Mobile Money, Card',
 } as const;
 
-/** Add real profile URLs here when available — used in Organization/LocalBusiness sameAs */
-export const SOCIAL_PROFILE_URLS: string[] = [];
+/** Used in Organization/LocalBusiness sameAs */
+export const SOCIAL_PROFILE_URLS: string[] = [
+  'https://www.instagram.com/mscoatingsug',
+];

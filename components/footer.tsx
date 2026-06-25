@@ -1,12 +1,16 @@
 import Link from 'next/link';
-import { Mail, Phone, MapPin, Share2, Globe, AtSign } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import Logo from '@/components/logo';
+import { FacebookIcon, InstagramIcon, LinkedInIcon } from '@/components/social-icons';
 import { MARKETING_CATEGORIES } from '@/lib/seo/categories';
 
+const INSTAGRAM_URL =
+  'https://www.instagram.com/mscoatingsug?igsh=czFyNWUya3h5MGtt';
+
 const socialLinks = [
-  { href: '#', label: 'Facebook', icon: Share2 },
-  { href: '#', label: 'Instagram', icon: AtSign },
-  { href: '#', label: 'LinkedIn', icon: Globe },
+  { href: '#', label: 'Facebook', icon: FacebookIcon },
+  { href: INSTAGRAM_URL, label: 'Instagram', icon: InstagramIcon },
+  { href: '#', label: 'LinkedIn', icon: LinkedInIcon },
 ];
 
 export default function Footer() {
@@ -25,16 +29,23 @@ export default function Footer() {
               durability, performance, and exceptional finishes.
             </p>
             <div className="flex gap-3">
-              {socialLinks.map(({ href, label, icon: Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white transition-colors hover:bg-white/10 hover:text-cyan"
-                  aria-label={label}
-                >
-                  <Icon size={18} />
-                </a>
-              ))}
+              {socialLinks.map(({ href, label, icon: Icon }) => {
+                const isExternal = href.startsWith('http');
+
+                return (
+                  <a
+                    key={label}
+                    href={href}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white transition-colors hover:bg-white/10 hover:text-cyan"
+                    aria-label={label}
+                    {...(isExternal
+                      ? { target: '_blank', rel: 'noopener noreferrer' }
+                      : {})}
+                  >
+                    <Icon size={18} />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
