@@ -3,6 +3,11 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 import Logo from '@/components/logo';
 import { FacebookIcon, InstagramIcon, LinkedInIcon } from '@/components/social-icons';
 import { MARKETING_CATEGORIES } from '@/lib/seo/categories';
+import {
+  BUSINESS_INFO,
+  getMailtoHref,
+  getTelHref,
+} from '@/lib/seo/business';
 
 const INSTAGRAM_URL =
   'https://www.instagram.com/mscoatingsug?igsh=czFyNWUya3h5MGtt';
@@ -93,14 +98,14 @@ export default function Footer() {
               </Link>
               <div className="flex items-start gap-3">
                 <Phone size={18} className="mt-0.5 shrink-0 text-cyan" />
-                <a href="tel:+256775305294" className="text-white transition-colors hover:text-cyan">
-                  +256 775 305 294
+                <a href={getTelHref()} className="text-white transition-colors hover:text-cyan">
+                  {BUSINESS_INFO.telephoneDisplay}
                 </a>
               </div>
               <div className="flex items-start gap-3">
                 <Mail size={18} className="mt-0.5 shrink-0 text-cyan" />
-                <a href="mailto:info@mscoatings.shop" className="text-white transition-colors hover:text-cyan">
-                  info@mscoatings.shop
+                <a href={getMailtoHref()} className="text-white transition-colors hover:text-cyan">
+                  {BUSINESS_INFO.email}
                 </a>
               </div>
               <div className="flex items-start gap-3">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { BUSINESS_INFO, getMailtoHref } from '@/lib/seo/business';
 
 const SUBJECTS = [
   'General inquiry',
@@ -62,9 +63,10 @@ export default function ContactForm() {
       .filter(Boolean)
       .join('\n');
 
-    const mailtoUrl = `mailto:info@mscoatings.shop?subject=${encodeURIComponent(
-      `[MS Coatings] ${formData.subject}`
-    )}&body=${encodeURIComponent(body)}`;
+    const mailtoUrl = getMailtoHref(BUSINESS_INFO.email, {
+      subject: `[MS Coatings] ${formData.subject}`,
+      body,
+    });
 
     window.location.href = mailtoUrl;
     toast.success('Opening your email app to send the message...');

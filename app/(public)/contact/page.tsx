@@ -16,6 +16,11 @@ import BrandButton from '@/components/brand-button';
 import ContactForm from '@/components/contact-form';
 import StructuredData from '@/components/structured-data';
 import { BRAND_NAME } from '@/lib/brand';
+import {
+  BUSINESS_INFO,
+  getMailtoHref,
+  getTelHref,
+} from '@/lib/seo/business';
 import { buildContactPageSchema } from '@/lib/seo/json-ld';
 import { buildPageMetadata } from '@/lib/seo/metadata';
 import { SEO_KEYWORDS } from '@/lib/seo/site';
@@ -23,7 +28,7 @@ import { SEO_KEYWORDS } from '@/lib/seo/site';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Contact MS Coatings Uganda',
   description:
-    'Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone +256 775 305 294, email, and WhatsApp available.',
+    `Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone ${BUSINESS_INFO.telephoneDisplay}, email, and WhatsApp available.`,
   path: '/contact',
   keywords: [
     ...SEO_KEYWORDS,
@@ -37,22 +42,22 @@ const CONTACT_METHODS = [
   {
     icon: Phone,
     title: 'Phone',
-    detail: '+256 775 305 294',
-    href: 'tel:+256775305294',
+    detail: BUSINESS_INFO.telephoneDisplay,
+    href: getTelHref(),
     note: 'Speak with our team during business hours.',
   },
   {
     icon: Mail,
     title: 'Email',
-    detail: 'info@mscoatings.shop',
-    href: 'mailto:info@mscoatings.shop',
+    detail: BUSINESS_INFO.email,
+    href: getMailtoHref(),
     note: 'For orders, quotes, and general inquiries.',
   },
   {
     icon: MessageCircle,
     title: 'WhatsApp',
     detail: 'Chat on WhatsApp',
-    href: 'https://wa.me/256775305294?text=Hello%20MS%20Coatings%2C%20I%20would%20like%20to%20inquire%20about%20your%20products.',
+    href: BUSINESS_INFO.whatsappUrl,
     note: 'Fast responses for product and order questions.',
     external: true,
   },
@@ -236,7 +241,7 @@ export default function ContactPage() {
               </p>
             </div>
             <BrandButton
-              href="https://wa.me/256775305294?text=Hello%20MS%20Coatings%2C%20I%20would%20like%20to%20inquire%20about%20your%20products."
+              href={BUSINESS_INFO.whatsappUrl}
               variant="primary"
               size="lg"
               className="bg-[#25D366] hover:bg-[#1fb855]"

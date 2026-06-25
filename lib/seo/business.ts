@@ -4,13 +4,13 @@ export const BUSINESS_INFO = {
   name: BRAND_NAME,
   legalName: BRAND_NAME,
   foundingDate: '2019',
-  telephone: '+256775305294',
-  telephoneDisplay: '+256 775 305 294',
-  email: 'info@mscoatings.shop',
-  supportEmail: 'support@mscoatings.shop',
-  privacyEmail: 'privacy@mscoatings.shop',
+  telephone: '+256709805895',
+  telephoneDisplay: '+256 709 805 895',
+  email: 'newspaintsolutionslimited@gmail.com',
+  supportEmail: 'newspaintsolutionslimited@gmail.com',
+  privacyEmail: 'newspaintsolutionslimited@gmail.com',
   whatsappUrl:
-    'https://wa.me/256775305294?text=Hello%20MS%20Coatings%2C%20I%20would%20like%20to%20inquire%20about%20your%20products.',
+    'https://wa.me/256709805895?text=Hello%20MS%20Coatings%2C%20I%20would%20like%20to%20inquire%20about%20your%20products.',
   address: {
     streetAddress: 'Kampala',
     addressLocality: 'Kampala',
@@ -28,6 +28,21 @@ export const BUSINESS_INFO = {
   currenciesAccepted: 'UGX',
   paymentAccepted: 'Cash, Mobile Money, Card',
 } as const;
+
+export function getTelHref(phone: string = BUSINESS_INFO.telephone): string {
+  return `tel:${phone}`;
+}
+
+export function getMailtoHref(
+  email: string = BUSINESS_INFO.email,
+  params?: { subject?: string; body?: string }
+): string {
+  const search = new URLSearchParams();
+  if (params?.subject) search.set('subject', params.subject);
+  if (params?.body) search.set('body', params.body);
+  const query = search.toString();
+  return query ? `mailto:${email}?${query}` : `mailto:${email}`;
+}
 
 /** Used in Organization/LocalBusiness sameAs */
 export const SOCIAL_PROFILE_URLS: string[] = [

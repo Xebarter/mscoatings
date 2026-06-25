@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
 import { buildPageMetadata } from '@/lib/seo/metadata';
+import { BUSINESS_INFO, getMailtoHref } from '@/lib/seo/business';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Cookie Policy',
@@ -324,10 +325,10 @@ export default function CookiePolicyPage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:privacy@mscoatings.shop"
+                  href={getMailtoHref(BUSINESS_INFO.privacyEmail)}
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  privacy@mscoatings.shop
+                  {BUSINESS_INFO.privacyEmail}
                 </a>
               </p>
             </address>

@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
 import { buildPageMetadata } from '@/lib/seo/metadata';
+import {
+  BUSINESS_INFO,
+  getMailtoHref,
+  getTelHref,
+} from '@/lib/seo/business';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Privacy Policy',
@@ -283,7 +288,7 @@ export default function PrivacyPolicyPage() {
               </Link>{' '}
               or{' '}
               <a
-                href="mailto:privacy@mscoatings.shop"
+                href={getMailtoHref(BUSINESS_INFO.privacyEmail)}
                 className="font-medium text-premium-blue hover:text-cyan"
               >
                 contact us
@@ -383,19 +388,19 @@ export default function PrivacyPolicyPage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:privacy@mscoatings.shop"
+                  href={getMailtoHref(BUSINESS_INFO.privacyEmail)}
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  privacy@mscoatings.shop
+                  {BUSINESS_INFO.privacyEmail}
                 </a>
               </p>
               <p>
                 Phone:{' '}
                 <a
-                  href="tel:+256775305294"
+                  href={getTelHref()}
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  +256 775 305 294
+                  {BUSINESS_INFO.telephoneDisplay}
                 </a>
               </p>
             </address>

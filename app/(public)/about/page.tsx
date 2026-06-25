@@ -19,6 +19,11 @@ import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import StructuredData from '@/components/structured-data';
 import { BRAND_ASSETS, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import {
+  BUSINESS_INFO,
+  getMailtoHref,
+  getTelHref,
+} from '@/lib/seo/business';
 import { ABOUT_FAQS } from '@/lib/seo/faqs';
 import { buildAboutPageSchema } from '@/lib/seo/json-ld';
 import { buildPageMetadata } from '@/lib/seo/metadata';
@@ -457,19 +462,19 @@ export default function AboutPage() {
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Phone size={18} className="mt-0.5 shrink-0 text-premium-blue" />
                   <a
-                    href="tel:+256775305294"
+                    href={getTelHref()}
                     className="font-medium text-navy hover:text-premium-blue"
                   >
-                    +256 775 305 294
+                    {BUSINESS_INFO.telephoneDisplay}
                   </a>
                 </div>
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Mail size={18} className="mt-0.5 shrink-0 text-premium-blue" />
                   <a
-                    href="mailto:info@mscoatings.shop"
+                    href={getMailtoHref()}
                     className="font-medium text-navy hover:text-premium-blue"
                   >
-                    info@mscoatings.shop
+                    {BUSINESS_INFO.email}
                   </a>
                 </div>
                 <div className="flex items-start gap-3 text-sm sm:text-base">

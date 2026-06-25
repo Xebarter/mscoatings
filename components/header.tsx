@@ -21,6 +21,10 @@ import BrandButton from '@/components/brand-button';
 import Logo from '@/components/logo';
 import { useCart } from '@/lib/cart-context';
 import { cn } from '@/lib/utils';
+import {
+  BUSINESS_INFO,
+  getTelHref,
+} from '@/lib/seo/business';
 
 interface HeaderProps {
   isAdmin?: boolean;
@@ -280,11 +284,11 @@ export default function Header({ isAdmin = false }: HeaderProps) {
                   Shop Products
                 </BrandButton>
                 <a
-                  href="tel:+256775305294"
+                  href={getTelHref()}
                   className="mt-4 flex items-center gap-3 rounded-xl px-2 py-2 text-sm text-body transition-colors hover:text-premium-blue"
                 >
                   <Phone size={16} className="shrink-0 text-premium-blue" />
-                  <span>+256 775 305 294</span>
+                  <span>{BUSINESS_INFO.telephoneDisplay}</span>
                 </a>
               </>
             ) : (

@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import Footer from '@/components/footer';
 import { buildPageMetadata } from '@/lib/seo/metadata';
+import {
+  BUSINESS_INFO,
+  getMailtoHref,
+  getTelHref,
+} from '@/lib/seo/business';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Terms of Service',
@@ -176,10 +181,10 @@ export default function TermsOfServicePage() {
               Full details are available in this Return &amp; Refund Policy section
               and by contacting{' '}
               <a
-                href="mailto:support@mscoatings.shop"
+                href={getMailtoHref(BUSINESS_INFO.supportEmail)}
                 className="font-medium text-premium-blue hover:text-cyan"
               >
-                support@mscoatings.shop
+                {BUSINESS_INFO.supportEmail}
               </a>
               .
             </p>
@@ -358,19 +363,19 @@ export default function TermsOfServicePage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:support@mscoatings.shop"
+                  href={getMailtoHref(BUSINESS_INFO.supportEmail)}
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  support@mscoatings.shop
+                  {BUSINESS_INFO.supportEmail}
                 </a>
               </p>
               <p>
                 Phone:{' '}
                 <a
-                  href="tel:+256775305294"
+                  href={getTelHref()}
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  +256 775 305 294
+                  {BUSINESS_INFO.telephoneDisplay}
                 </a>
               </p>
             </address>
