@@ -65,10 +65,10 @@ export default function TermsOfServicePage() {
               Welcome to MS Coatings! These Terms of Service (&ldquo;Terms&rdquo;)
               govern your access to and use of our website (
               <a
-                href="https://www.mscoatings.com"
+                href="https://www.mscoatings.shop"
                 className="font-medium text-premium-blue hover:text-cyan"
               >
-                https://www.mscoatings.com
+                https://www.mscoatings.shop
               </a>
               ), mobile applications (if any), and any related services, features,
               or content (collectively, the &ldquo;Site&rdquo;). MS Coatings
@@ -176,10 +176,10 @@ export default function TermsOfServicePage() {
               Full details are available in this Return &amp; Refund Policy section
               and by contacting{' '}
               <a
-                href="mailto:support@mscoatings.com"
+                href="mailto:support@mscoatings.shop"
                 className="font-medium text-premium-blue hover:text-cyan"
               >
-                support@mscoatings.com
+                support@mscoatings.shop
               </a>
               .
             </p>
@@ -358,10 +358,10 @@ export default function TermsOfServicePage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:support@mscoatings.com"
+                  href="mailto:support@mscoatings.shop"
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  support@mscoatings.com
+                  support@mscoatings.shop
                 </a>
               </p>
               <p>

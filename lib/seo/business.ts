@@ -6,9 +6,9 @@ export const BUSINESS_INFO = {
   foundingDate: '2019',
   telephone: '+256775305294',
   telephoneDisplay: '+256 775 305 294',
-  email: 'info@mscoatings.com',
-  supportEmail: 'support@mscoatings.com',
-  privacyEmail: 'privacy@mscoatings.com',
+  email: 'info@mscoatings.shop',
+  supportEmail: 'support@mscoatings.shop',
+  privacyEmail: 'privacy@mscoatings.shop',
   whatsappUrl:
     'https://wa.me/256775305294?text=Hello%20MS%20Coatings%2C%20I%20would%20like%20to%20inquire%20about%20your%20products.',
   address: {

@@ -466,10 +466,10 @@ export default function AboutPage() {
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Mail size={18} className="mt-0.5 shrink-0 text-premium-blue" />
                   <a
-                    href="mailto:info@mscoatings.com"
+                    href="mailto:info@mscoatings.shop"
                     className="font-medium text-navy hover:text-premium-blue"
                   >
-                    info@mscoatings.com
+                    info@mscoatings.shop
                   </a>
                 </div>
                 <div className="flex items-start gap-3 text-sm sm:text-base">
@@ -479,10 +479,10 @@ export default function AboutPage() {
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Globe size={18} className="mt-0.5 shrink-0 text-premium-blue" />
                   <a
-                    href="https://www.mscoatings.com"
+                    href="https://www.mscoatings.shop"
                     className="font-medium text-navy hover:text-premium-blue"
                   >
-                    www.mscoatings.com
+                    www.mscoatings.shop
                   </a>
                 </div>
               </div>

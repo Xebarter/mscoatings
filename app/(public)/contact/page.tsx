@@ -44,8 +44,8 @@ const CONTACT_METHODS = [
   {
     icon: Mail,
     title: 'Email',
-    detail: 'info@mscoatings.com',
-    href: 'mailto:info@mscoatings.com',
+    detail: 'info@mscoatings.shop',
+    href: 'mailto:info@mscoatings.shop',
     note: 'For orders, quotes, and general inquiries.',
   },
   {

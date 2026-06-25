@@ -80,10 +80,10 @@ export default function CookiePolicyPage() {
               At MS Coatings, we use cookies and similar tracking technologies to
               enhance your shopping experience, improve our website (
               <a
-                href="https://www.mscoatings.com"
+                href="https://www.mscoatings.shop"
                 className="font-medium text-premium-blue hover:text-cyan"
               >
-                https://www.mscoatings.com
+                https://www.mscoatings.shop
               </a>
               ), and deliver relevant content and advertisements (collectively, the
               &ldquo;Site&rdquo;). This Cookie Policy explains what cookies are, the
@@ -324,10 +324,10 @@ export default function CookiePolicyPage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:privacy@mscoatings.com"
+                  href="mailto:privacy@mscoatings.shop"
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  privacy@mscoatings.com
+                  privacy@mscoatings.shop
                 </a>
               </p>
             </address>

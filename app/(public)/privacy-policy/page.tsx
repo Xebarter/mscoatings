@@ -82,10 +82,10 @@ export default function PrivacyPolicyPage() {
               how we collect, use, disclose, and safeguard your information when you
               visit our website (
               <a
-                href="https://www.mscoatings.com"
+                href="https://www.mscoatings.shop"
                 className="font-medium text-premium-blue hover:text-cyan"
               >
-                https://www.mscoatings.com
+                https://www.mscoatings.shop
               </a>
               ), make a purchase, or interact with our services (collectively, the
               &ldquo;Site&rdquo;). By accessing or using our Site, you agree to the
@@ -283,7 +283,7 @@ export default function PrivacyPolicyPage() {
               </Link>{' '}
               or{' '}
               <a
-                href="mailto:privacy@mscoatings.com"
+                href="mailto:privacy@mscoatings.shop"
                 className="font-medium text-premium-blue hover:text-cyan"
               >
                 contact us
@@ -383,10 +383,10 @@ export default function PrivacyPolicyPage() {
               <p>
                 Email:{' '}
                 <a
-                  href="mailto:privacy@mscoatings.com"
+                  href="mailto:privacy@mscoatings.shop"
                   className="font-medium text-premium-blue hover:text-cyan"
                 >
-                  privacy@mscoatings.com
+                  privacy@mscoatings.shop
                 </a>
               </p>
               <p>

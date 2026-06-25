@@ -209,7 +209,7 @@ export default function AdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@mscoatings.com"
+                placeholder="admin@mscoatings.shop"
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-navy focus:border-premium-blue focus:outline-none focus:ring-2 focus:ring-premium-blue/20"
               />
             </div>

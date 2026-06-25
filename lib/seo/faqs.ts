@@ -27,7 +27,7 @@ export const HOME_FAQS: SeoFaq[] = [
   {
     question: 'How can I contact MS Coatings for technical support?',
     answer:
-      'Contact MS Coatings by phone at +256 775 305 294, email info@mscoatings.com, or WhatsApp for product guidance, order support, and technical questions about primers, clear coats, and coating systems.',
+      'Contact MS Coatings by phone at +256 775 305 294, email info@mscoatings.shop, or WhatsApp for product guidance, order support, and technical questions about primers, clear coats, and coating systems.',
   },
 ];
 

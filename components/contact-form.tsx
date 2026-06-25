@@ -62,7 +62,7 @@ export default function ContactForm() {
       .filter(Boolean)
       .join('\n');
 
-    const mailtoUrl = `mailto:info@mscoatings.com?subject=${encodeURIComponent(
+    const mailtoUrl = `mailto:info@mscoatings.shop?subject=${encodeURIComponent(
       `[MS Coatings] ${formData.subject}`
     )}&body=${encodeURIComponent(body)}`;
 
