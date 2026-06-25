@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { XCircle } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 
 function PaymentFailureContent() {
@@ -52,7 +51,6 @@ export default function PaymentFailurePage() {
           <PaymentFailureContent />
         </Suspense>
       </div>
-      <Footer />
     </div>
   );
 }

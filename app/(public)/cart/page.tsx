@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
@@ -116,7 +115,6 @@ export default function CartPage() {
         )}
       </div>
 
-      <Footer />
     </div>
   );
 }

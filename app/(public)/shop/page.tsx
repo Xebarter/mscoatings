@@ -7,7 +7,6 @@ import { ChevronRight } from 'lucide-react';
 import { getProducts, Product } from '@/lib/firestore';
 import toast from 'react-hot-toast';
 import ProductCard from '@/components/product-card';
-import Footer from '@/components/footer';
 import SearchBar from '@/components/search-bar';
 
 function ProductGridSkeleton() {
@@ -187,7 +186,6 @@ function ShopContent() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import ProductCard from '@/components/product-card';
-import Footer from '@/components/footer';
 import Breadcrumbs from '@/components/breadcrumbs';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
 import {
@@ -104,7 +103,6 @@ export default function CategoryPageClient({
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

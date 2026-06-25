@@ -1,6 +1,5 @@
-'use client';
-
 import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 export default function PublicLayout({
   children,
@@ -11,6 +10,7 @@ export default function PublicLayout({
     <>
       <Header />
       <div className="pt-20">{children}</div>
+      <Footer />
     </>
   );
 }

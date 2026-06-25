@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import Logo from '@/components/logo';
 import { FacebookIcon, InstagramIcon, LinkedInIcon } from '@/components/social-icons';
-import { MARKETING_CATEGORIES } from '@/lib/seo/categories';
+import { getAllProductsServer } from '@/lib/products-server';
+import {
+  categoryToSlug,
+  getUniqueCategoriesFromProducts,
+} from '@/lib/seo/categories';
 import {
   BUSINESS_INFO,
   getMailtoHref,
@@ -18,8 +22,10 @@ const socialLinks = [
   { href: '#', label: 'LinkedIn', icon: LinkedInIcon },
 ];
 
-export default function Footer() {
+export default async function Footer() {
   const currentYear = new Date().getFullYear();
+  const products = await getAllProductsServer();
+  const categories = getUniqueCategoriesFromProducts(products);
 
   return (
     <footer id="contact" className="bg-navy text-[#D1D5DB]">
@@ -59,14 +65,18 @@ export default function Footer() {
               Products
             </h4>
             <ul className="space-y-3 text-sm">
-              <li><Link href="/products" className="transition-colors hover:text-cyan">All Products</Link></li>
-              {MARKETING_CATEGORIES.map((category) => (
-                <li key={category.slug}>
+              <li>
+                <Link href="/products" className="transition-colors hover:text-cyan">
+                  All Products
+                </Link>
+              </li>
+              {categories.map((category) => (
+                <li key={category}>
                   <Link
-                    href={`/products/category/${category.slug}`}
+                    href={`/products/category/${categoryToSlug(category)}`}
                     className="transition-colors hover:text-cyan"
                   >
-                    {category.label}
+                    {category}
                   </Link>
                 </li>
               ))}

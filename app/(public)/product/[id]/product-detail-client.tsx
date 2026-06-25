@@ -6,7 +6,6 @@ import { ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { getCategoryColor } from '@/lib/brand';
 import toast from 'react-hot-toast';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ProductImage from '@/components/product-image';
 import Breadcrumbs from '@/components/breadcrumbs';
@@ -184,7 +183,6 @@ export default function ProductDetailClient({
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 }

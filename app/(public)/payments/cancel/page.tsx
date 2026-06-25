@@ -3,7 +3,6 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Ban } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 
 function PaymentCancelContent() {
@@ -51,7 +50,6 @@ export default function PaymentCancelPage() {
           <PaymentCancelContent />
         </Suspense>
       </div>
-      <Footer />
     </div>
   );
 }

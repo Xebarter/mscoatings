@@ -11,7 +11,6 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import ContactForm from '@/components/contact-form';
 import StructuredData from '@/components/structured-data';
@@ -293,8 +292,6 @@ export default function ContactPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
     </>
   );

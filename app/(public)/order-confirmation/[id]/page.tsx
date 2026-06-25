@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { formatUgx } from '@/lib/currency';
 
@@ -101,7 +100,6 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 }

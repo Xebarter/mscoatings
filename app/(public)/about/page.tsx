@@ -15,7 +15,6 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import StructuredData from '@/components/structured-data';
 import { BRAND_ASSETS, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
@@ -495,8 +494,6 @@ export default function AboutPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
     </>
   );

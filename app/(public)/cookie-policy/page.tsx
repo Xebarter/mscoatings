@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import Footer from '@/components/footer';
 import { buildPageMetadata } from '@/lib/seo/metadata';
 import { BUSINESS_INFO, getMailtoHref } from '@/lib/seo/business';
 
@@ -345,7 +344,6 @@ export default function CookiePolicyPage() {
         </div>
       </main>
 
-      <Footer />
     </div>
   );
 }

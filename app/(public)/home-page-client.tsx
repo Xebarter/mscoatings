@@ -6,7 +6,6 @@ import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import ProductCard from '@/components/product-card';
 import HeroProductShowcase from '@/components/hero-product-showcase';
 import ProductImage from '@/components/product-image';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import SearchBar from '@/components/search-bar';
 import { BRAND_ASSETS } from '@/lib/brand';
@@ -278,7 +277,6 @@ export default function HomePageClient({ products: initialProducts }: HomePageCl
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { useCart } from '@/lib/cart-context';
 import { formatUgx } from '@/lib/currency';
@@ -133,7 +132,6 @@ export default function PaymentSuccessPage() {
           <PaymentSuccessContent />
         </Suspense>
       </div>
-      <Footer />
     </div>
   );
 }

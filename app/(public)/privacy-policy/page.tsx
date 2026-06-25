@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import Footer from '@/components/footer';
 import { buildPageMetadata } from '@/lib/seo/metadata';
 import {
   BUSINESS_INFO,
@@ -418,7 +417,6 @@ export default function PrivacyPolicyPage() {
         </div>
       </main>
 
-      <Footer />
     </div>
   );
 }

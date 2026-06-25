@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/product-card';
-import Footer from '@/components/footer';
 import SearchBar from '@/components/search-bar';
 import Breadcrumbs from '@/components/breadcrumbs';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
@@ -158,7 +157,6 @@ function ProductsPageContent({ products: initialProducts }: ProductsPageClientPr
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

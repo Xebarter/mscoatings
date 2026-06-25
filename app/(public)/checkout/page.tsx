@@ -6,7 +6,6 @@ import { ArrowLeft, CreditCard, Smartphone } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import type { OrderItem } from '@/lib/firestore';
 import toast from 'react-hot-toast';
-import Footer from '@/components/footer';
 import BrandButton from '@/components/brand-button';
 import { formatUgx } from '@/lib/currency';
 
@@ -26,7 +25,6 @@ export default function CheckoutPage() {
           <p className="mb-6 text-lg text-body">Your cart is empty</p>
           <BrandButton href="/products" variant="primary">Continue Shopping</BrandButton>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -178,7 +176,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 }
