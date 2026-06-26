@@ -21,8 +21,8 @@ import { BRAND_ASSETS, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 import {
   BUSINESS_INFO,
   getMailtoHref,
-  getTelHref,
 } from '@/lib/seo/business';
+import PhoneLinks from '@/components/phone-links';
 import { ABOUT_FAQS } from '@/lib/seo/faqs';
 import { buildAboutPageSchema } from '@/lib/seo/json-ld';
 import { buildPageMetadata } from '@/lib/seo/metadata';
@@ -460,12 +460,7 @@ export default function AboutPage() {
               <div className="space-y-4 rounded-2xl bg-light-gray p-5 sm:p-6">
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Phone size={18} className="mt-0.5 shrink-0 text-premium-blue" />
-                  <a
-                    href={getTelHref()}
-                    className="font-medium text-navy hover:text-premium-blue"
-                  >
-                    {BUSINESS_INFO.telephoneDisplay}
-                  </a>
+                  <PhoneLinks linkClassName="font-medium text-navy hover:text-premium-blue" />
                 </div>
                 <div className="flex items-start gap-3 text-sm sm:text-base">
                   <Mail size={18} className="mt-0.5 shrink-0 text-premium-blue" />

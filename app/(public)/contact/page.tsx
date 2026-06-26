@@ -17,9 +17,10 @@ import StructuredData from '@/components/structured-data';
 import { BRAND_NAME } from '@/lib/brand';
 import {
   BUSINESS_INFO,
+  formatPhoneListForText,
   getMailtoHref,
-  getTelHref,
 } from '@/lib/seo/business';
+import PhoneLinks from '@/components/phone-links';
 import { buildContactPageSchema } from '@/lib/seo/json-ld';
 import { buildPageMetadata } from '@/lib/seo/metadata';
 import { SEO_KEYWORDS } from '@/lib/seo/site';
@@ -27,7 +28,7 @@ import { SEO_KEYWORDS } from '@/lib/seo/site';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Contact MS Coatings Uganda',
   description:
-    `Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone ${BUSINESS_INFO.telephoneDisplay}, email, and WhatsApp available.`,
+    `Contact MS Coatings for product inquiries, order support, technical advice, and wholesale orders. Phone ${formatPhoneListForText()}, email, and WhatsApp available.`,
   path: '/contact',
   keywords: [
     ...SEO_KEYWORDS,
@@ -38,13 +39,6 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 const CONTACT_METHODS = [
-  {
-    icon: Phone,
-    title: 'Phone',
-    detail: BUSINESS_INFO.telephoneDisplay,
-    href: getTelHref(),
-    note: 'Speak with our team during business hours.',
-  },
   {
     icon: Mail,
     title: 'Email',
@@ -151,6 +145,21 @@ export default function ContactPage() {
       <main>
         <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="card-premium p-5 sm:p-6">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-premium-blue/10 text-premium-blue">
+                <Phone size={22} />
+              </div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">
+                Phone
+              </h2>
+              <PhoneLinks
+                className="mt-1"
+                linkClassName="block text-base font-bold text-navy transition-colors hover:text-premium-blue sm:text-lg"
+              />
+              <p className="mt-2 text-sm leading-relaxed text-body">
+                Speak with our team during business hours.
+              </p>
+            </div>
             {CONTACT_METHODS.map(
               ({ icon: Icon, title, detail, href, note, external }) => (
                 <a

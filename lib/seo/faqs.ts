@@ -1,4 +1,4 @@
-import { BUSINESS_INFO } from '@/lib/seo/business';
+import { BUSINESS_INFO, formatPhoneListForText } from '@/lib/seo/business';
 
 export interface SeoFaq {
   question: string;
@@ -29,7 +29,7 @@ export const HOME_FAQS: SeoFaq[] = [
   {
     question: 'How can I contact MS Coatings for technical support?',
     answer:
-      `Contact MS Coatings by phone at ${BUSINESS_INFO.telephoneDisplay}, email ${BUSINESS_INFO.email}, or WhatsApp for product guidance, order support, and technical questions about primers, clear coats, and coating systems.`,
+      `Contact MS Coatings by phone at ${formatPhoneListForText()}, email ${BUSINESS_INFO.email}, or WhatsApp for product guidance, order support, and technical questions about primers, clear coats, and coating systems.`,
   },
 ];
 

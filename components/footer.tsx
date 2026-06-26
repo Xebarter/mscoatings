@@ -10,8 +10,8 @@ import {
 import {
   BUSINESS_INFO,
   getMailtoHref,
-  getTelHref,
 } from '@/lib/seo/business';
+import PhoneLinks from '@/components/phone-links';
 
 const INSTAGRAM_URL =
   'https://www.instagram.com/mscoatingsug?igsh=czFyNWUya3h5MGtt';
@@ -108,9 +108,7 @@ export default async function Footer() {
               </Link>
               <div className="flex items-start gap-3">
                 <Phone size={18} className="mt-0.5 shrink-0 text-cyan" />
-                <a href={getTelHref()} className="text-white transition-colors hover:text-cyan">
-                  {BUSINESS_INFO.telephoneDisplay}
-                </a>
+                <PhoneLinks linkClassName="text-white transition-colors hover:text-cyan" />
               </div>
               <div className="flex items-start gap-3">
                 <Mail size={18} className="mt-0.5 shrink-0 text-cyan" />

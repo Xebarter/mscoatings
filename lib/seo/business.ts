@@ -1,11 +1,17 @@
 import { BRAND_NAME } from '@/lib/brand';
 
+export const BUSINESS_PHONES = [
+  { tel: '+256709805895', display: '+256 709 805 895' },
+  { tel: '+256775182065', display: '+256 775 182 065' },
+] as const;
+
 export const BUSINESS_INFO = {
   name: BRAND_NAME,
   legalName: BRAND_NAME,
   foundingDate: '2019',
-  telephone: '+256709805895',
-  telephoneDisplay: '+256 709 805 895',
+  telephone: BUSINESS_PHONES[0].tel,
+  telephoneDisplay: BUSINESS_PHONES[0].display,
+  telephones: BUSINESS_PHONES,
   email: 'newspaintsolutionslimited@gmail.com',
   supportEmail: 'newspaintsolutionslimited@gmail.com',
   privacyEmail: 'newspaintsolutionslimited@gmail.com',
@@ -42,6 +48,12 @@ export function getMailtoHref(
   if (params?.body) search.set('body', params.body);
   const query = search.toString();
   return query ? `mailto:${email}?${query}` : `mailto:${email}`;
+}
+
+export function formatPhoneListForText(
+  phones: readonly { display: string }[] = BUSINESS_PHONES
+): string {
+  return phones.map((phone) => phone.display).join(' or ');
 }
 
 /** Used in Organization/LocalBusiness sameAs */

@@ -5,8 +5,8 @@ import { buildPageMetadata } from '@/lib/seo/metadata';
 import {
   BUSINESS_INFO,
   getMailtoHref,
-  getTelHref,
 } from '@/lib/seo/business';
+import PhoneLinks from '@/components/phone-links';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Privacy Policy',
@@ -393,14 +393,12 @@ export default function PrivacyPolicyPage() {
                   {BUSINESS_INFO.privacyEmail}
                 </a>
               </p>
-              <p>
-                Phone:{' '}
-                <a
-                  href={getTelHref()}
-                  className="font-medium text-premium-blue hover:text-cyan"
-                >
-                  {BUSINESS_INFO.telephoneDisplay}
-                </a>
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>Phone:</span>
+                <PhoneLinks
+                  layout="inline"
+                  linkClassName="font-medium text-premium-blue hover:text-cyan"
+                />
               </p>
             </address>
             <p>We will make every effort to address your concerns promptly.</p>

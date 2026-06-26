@@ -1,5 +1,5 @@
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
-import { BUSINESS_INFO, SOCIAL_PROFILE_URLS } from '@/lib/seo/business';
+import { BUSINESS_INFO, BUSINESS_PHONES, SOCIAL_PROFILE_URLS } from '@/lib/seo/business';
 import { buildProductImageAlt, toAbsoluteImageUrl } from '@/lib/seo/images';
 import type { SeoFaq } from '@/lib/seo/faqs';
 import {
@@ -43,13 +43,13 @@ export function buildOrganizationSchema() {
     description: DEFAULT_SITE_DESCRIPTION,
     foundingDate: BUSINESS_INFO.foundingDate,
     email: BUSINESS_INFO.email,
-    telephone: BUSINESS_INFO.telephone,
+    telephone: BUSINESS_PHONES.map((phone) => phone.tel),
     areaServed: BUSINESS_INFO.areaServed,
     ...(SOCIAL_PROFILE_URLS.length > 0 ? { sameAs: SOCIAL_PROFILE_URLS } : {}),
-    contactPoint: [
+    contactPoint: BUSINESS_PHONES.flatMap((phone) => [
       {
         '@type': 'ContactPoint',
-        telephone: BUSINESS_INFO.telephone,
+        telephone: phone.tel,
         email: BUSINESS_INFO.email,
         contactType: 'customer service',
         areaServed: 'UG',
@@ -57,12 +57,12 @@ export function buildOrganizationSchema() {
       },
       {
         '@type': 'ContactPoint',
-        telephone: BUSINESS_INFO.telephone,
+        telephone: phone.tel,
         contactType: 'sales',
         areaServed: 'UG',
         availableLanguage: ['English'],
       },
-    ],
+    ]),
   };
 }
 
@@ -75,7 +75,7 @@ export function buildLocalBusinessSchema() {
     url: getSiteUrl(),
     image: absoluteUrl('/web-app-manifest-512x512.png'),
     logo: absoluteUrl('/web-app-manifest-512x512.png'),
-    telephone: BUSINESS_INFO.telephone,
+    telephone: BUSINESS_PHONES.map((phone) => phone.tel),
     email: BUSINESS_INFO.email,
     priceRange: BUSINESS_INFO.priceRange,
     currenciesAccepted: BUSINESS_INFO.currenciesAccepted,
