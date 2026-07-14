@@ -2,9 +2,6 @@ import {
   collection,
   doc,
   getDocFromCache,
-  addDoc,
-  updateDoc,
-  deleteDoc,
   Timestamp,
   query,
   where,
@@ -278,7 +275,13 @@ export async function addProduct(
   productData: Omit<Product, 'id' | 'createdAt'>
 ): Promise<string> {
   try {
-    await ensureAccess();
+    if (isOnline()) {
+      try {
+        await ensureAccess();
+      } catch {
+        /* offline session may still work */
+      }
+    }
     const createdAt = Timestamp.now();
     const payload = {
       ...productData,
@@ -286,9 +289,27 @@ export async function addProduct(
       costPrice: productData.costPrice ?? 0,
       createdAt,
     };
-    const docRef = await addDoc(productsCollection, payload);
+    const docRef = doc(productsCollection);
     const product: Product = { id: docRef.id, ...payload };
     await patchLocalProducts((items) => [...items, product]);
+
+    const { syncDocOps } = await import('./offline/flush-queue');
+    const { serializeDeep, stampTimestamp } = await import('./offline/pending-writes');
+    await syncDocOps({
+      id: `product-create-${docRef.id}`,
+      kind: 'product.upsert',
+      ops: [
+        {
+          op: 'set',
+          collection: 'products',
+          docId: docRef.id,
+          data: serializeDeep({
+            ...payload,
+            createdAt: stampTimestamp(createdAt),
+          }) as Record<string, unknown>,
+        },
+      ],
+    });
 
     const { logDesktopActivity } = await import('./staff-activity');
     logDesktopActivity({
@@ -313,11 +334,32 @@ export async function updateProduct(
   updates: Partial<Omit<Product, 'id' | 'createdAt'>>
 ): Promise<void> {
   try {
-    await ensureAccess();
-    await updateDoc(doc(productsCollection, productId), updates);
+    if (isOnline()) {
+      try {
+        await ensureAccess();
+      } catch {
+        /* continue */
+      }
+    }
     await patchLocalProducts((items) =>
       items.map((p) => (p.id === productId ? { ...p, ...updates } : p))
     );
+
+    const { syncDocOps } = await import('./offline/flush-queue');
+    const { serializeDeep } = await import('./offline/pending-writes');
+    await syncDocOps({
+      id: `product-update-${productId}-${Date.now()}`,
+      kind: 'product.upsert',
+      ops: [
+        {
+          op: 'set',
+          collection: 'products',
+          docId: productId,
+          data: serializeDeep(updates) as Record<string, unknown>,
+          merge: true,
+        },
+      ],
+    });
 
     const { logDesktopActivity } = await import('./staff-activity');
     logDesktopActivity({
@@ -338,9 +380,21 @@ export async function updateProduct(
 
 export async function deleteProduct(productId: string): Promise<void> {
   try {
-    await ensureAccess();
-    await deleteDoc(doc(productsCollection, productId));
+    if (isOnline()) {
+      try {
+        await ensureAccess();
+      } catch {
+        /* continue */
+      }
+    }
     await patchLocalProducts((items) => items.filter((p) => p.id !== productId));
+
+    const { syncDocOps } = await import('./offline/flush-queue');
+    await syncDocOps({
+      id: `product-delete-${productId}`,
+      kind: 'product.delete',
+      ops: [{ op: 'delete', collection: 'products', docId: productId }],
+    });
 
     const { logDesktopActivity } = await import('./staff-activity');
     logDesktopActivity({
@@ -380,8 +434,13 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 
 export async function updateOrderStatus(orderId: string, status: Order['status']) {
   try {
-    await ensureAccess();
-    await updateDoc(doc(ordersCollection, orderId), { status });
+    if (isOnline()) {
+      try {
+        await ensureAccess();
+      } catch {
+        /* continue */
+      }
+    }
     const orders = await localGet<{ items: Order[] }>('orders');
     if (orders?.items) {
       await localSet('orders', {
@@ -389,6 +448,22 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
         savedAt: Date.now(),
       });
     }
+
+    const { syncDocOps } = await import('./offline/flush-queue');
+    await syncDocOps({
+      id: `order-status-${orderId}-${status}`,
+      kind: 'order.status',
+      ops: [
+        {
+          op: 'set',
+          collection: 'orders',
+          docId: orderId,
+          data: { status },
+          merge: true,
+        },
+      ],
+    });
+
     const { logDesktopActivity } = await import('./staff-activity');
     logDesktopActivity({
       action: 'order.status_change',

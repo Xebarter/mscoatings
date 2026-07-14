@@ -15,7 +15,8 @@ export type SnapshotKey =
   | 'staff'
   | 'session'
   | 'reportCache'
-  | 'meta';
+  | 'meta'
+  | 'pendingWrites';
 
 export interface CachedProductImage {
   productId: string;

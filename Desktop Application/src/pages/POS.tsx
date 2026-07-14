@@ -154,7 +154,7 @@ export default function POSPage() {
   };
 
   const handleCheckout = async () => {
-    if (!cart.length) return;
+    if (!cart.length || processing) return;
     setProcessing(true);
     const cartSnapshot = cart;
     try {
@@ -171,15 +171,17 @@ export default function POSPage() {
             ? paymentReference.trim()
             : undefined,
       });
+
       toast.success(
-        online ? 'Sale completed!' : 'Sale saved offline — will sync when online'
+        online ? 'Sale completed' : 'Sale saved on this device — syncs when online',
+        { duration: 3500 }
       );
+
       setCart([]);
       setCheckoutOpen(false);
       setAmountTendered('');
       setPaymentReference('');
 
-      // Apply stock locally first so checkout can close offline without waiting on network.
       const soldQty = new Map(
         cartSnapshot.map((item) => [item.product.id, item.quantity] as const)
       );
@@ -187,7 +189,7 @@ export default function POSPage() {
         prev
           .map((p) => {
             const qty = soldQty.get(p.id);
-            return qty ? { ...p, stock: p.stock - qty } : p;
+            return qty ? { ...p, stock: Math.max(0, p.stock - qty) } : p;
           })
           .filter((p) => p.stock > 0)
       );
@@ -423,11 +425,20 @@ export default function POSPage() {
               className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
             >
               <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-slate-900">Complete Sale</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Complete Sale</h2>
+                  {!online && (
+                    <p className="mt-0.5 text-xs font-medium text-amber-700">
+                      Offline — saves to this device instantly
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setCheckoutOpen(false)}
-                  className="rounded-lg p-1 hover:bg-slate-100"
+                  onClick={() => !processing && setCheckoutOpen(false)}
+                  disabled={processing}
+                  className="rounded-lg p-1 hover:bg-slate-100 disabled:opacity-40"
+                  aria-label="Close"
                 >
                   <X size={20} />
                 </button>
@@ -495,11 +506,18 @@ export default function POSPage() {
 
               <button
                 type="button"
-                onClick={handleCheckout}
+                onClick={() => void handleCheckout()}
                 disabled={processing}
-                className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 py-3 font-semibold text-white shadow-lg transition disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 py-3.5 font-semibold text-white shadow-lg transition disabled:cursor-wait disabled:opacity-70"
               >
-                {processing ? 'Processing...' : 'Confirm Payment'}
+                {processing ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    {online ? 'Completing sale…' : 'Saving locally…'}
+                  </>
+                ) : (
+                  'Confirm Payment'
+                )}
               </button>
             </motion.div>
           </motion.div>

@@ -67,17 +67,26 @@ export async function getOfflineSession(): Promise<OfflineSession | null> {
 /**
  * Ensures auth is usable for Firestore.
  * Online: refreshes ID token if needed.
- * Offline: uses cached token without forcing a network refresh.
+ * Offline: uses cached token without forcing a network refresh — never blocks POS.
  */
 export async function ensureFirestoreAuthReady(): Promise<void> {
   const currentUser = auth.currentUser;
   if (currentUser) {
+    if (!isOnline()) {
+      // Cached auth is enough for offline local writes
+      try {
+        await Promise.race([
+          currentUser.getIdToken(false),
+          new Promise((resolve) => setTimeout(resolve, 400)),
+        ]);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     try {
       await currentUser.getIdToken(false);
     } catch {
-      if (!isOnline()) {
-        return;
-      }
       throw new Error('Could not refresh authentication. Please sign in again.');
     }
     return;
@@ -93,14 +102,16 @@ export async function ensureFirestoreAuthReady(): Promise<void> {
             : 'No offline session found. Connect to the internet and sign in once.'
         )
       );
-    }, isOnline() ? 10_000 : 8_000);
+    }, isOnline() ? 10_000 : 2_000);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
       clearTimeout(timeout);
       unsubscribe();
       try {
-        await user.getIdToken(false);
+        if (isOnline()) {
+          await user.getIdToken(false);
+        }
         resolve();
       } catch (error) {
         if (!isOnline()) {

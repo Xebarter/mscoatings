@@ -51,8 +51,16 @@ export default function MessagesPage() {
               typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
             );
           }
-          setMessages((data.messages as ContactMessage[]) ?? []);
+          const apiMessages = (data.messages as ContactMessage[]) ?? [];
+          setMessages(apiMessages);
           setSource('api');
+          // Keep IndexedDB warm so Messages still works after going offline.
+          void import('@/lib/offline/local-store').then(({ localSet }) =>
+            localSet('contactMessages', {
+              items: apiMessages,
+              savedAt: Date.now(),
+            })
+          );
           bumpAlerts();
           return;
         } catch (apiError) {

@@ -1,13 +1,10 @@
 import {
-  addDoc,
   collection,
   doc,
   Timestamp,
-  updateDoc,
-  writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { ensureFirestoreAuthReady } from './admin-auth';
+import { ensureFirestoreAuthReady, getOfflineSession } from './admin-auth';
 import type {
   FieldAgent,
   FieldPick,
@@ -27,8 +24,14 @@ import {
   toFirestoreError,
 } from './firestore';
 import { isOnline } from './offline/connectivity';
-import { getDocHybrid } from './offline/firestore-reads';
+import { getDocHybrid, withTimeout } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
+import { syncDocOps } from './offline/flush-queue';
+import {
+  serializeDeep,
+  stampTimestamp,
+  type PendingDocOp,
+} from './offline/pending-writes';
 import { logDesktopActivity } from './staff-activity';
 
 function generateReceiptNumber(): string {
@@ -40,28 +43,46 @@ function generateReceiptNumber(): string {
 }
 
 async function requireUserEmail(): Promise<string> {
-  const user = auth.currentUser;
-  if (!user?.email) {
-    await ensureFirestoreAuthReady();
+  if (auth.currentUser?.email) {
+    return auth.currentUser.email.toLowerCase();
   }
-  const email = auth.currentUser?.email;
-  if (!email) {
-    throw new Error('You must be signed in.');
+  if (isOnline()) {
+    try {
+      await withTimeout(ensureFirestoreAuthReady(), 2_000);
+    } catch {
+      /* fall through to session */
+    }
   }
-  return email.toLowerCase();
+  if (auth.currentUser?.email) {
+    return auth.currentUser.email.toLowerCase();
+  }
+  const session = await getOfflineSession();
+  if (session?.email) return session.email.toLowerCase();
+  throw new Error('You must be signed in.');
+}
+
+async function requireCashierUid(): Promise<string> {
+  if (auth.currentUser?.uid) return auth.currentUser.uid;
+  const session = await getOfflineSession();
+  if (session?.uid) return session.uid;
+  throw new Error('You must be signed in.');
 }
 
 async function loadProduct(productId: string): Promise<Product> {
-  const ref = doc(db, 'products', productId);
+  const mirrored = await localGet<{ items: Product[] }>('products');
+  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
+  if (fromMirror) return fromMirror;
+
+  if (!isOnline()) {
+    throw new Error(`Product not available offline: ${productId}`);
+  }
+
   try {
-    const snap = await getDocHybrid(ref);
+    const snap = await getDocHybrid(doc(db, 'products', productId));
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
   }
-  const mirrored = await localGet<{ items: Product[] }>('products');
-  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
-  if (fromMirror) return fromMirror;
   const product = await getProductById(productId);
   if (!product) throw new Error(`Product not found: ${productId}`);
   return product;
@@ -181,7 +202,7 @@ export async function createFieldAgentClient(input: {
       createdBy,
     };
 
-    const docRef = await addDoc(collection(db, 'fieldAgents'), payload);
+    const docRef = doc(collection(db, 'fieldAgents'));
 
     await patchLocalFieldAgents((items) => [
       {
@@ -200,6 +221,22 @@ export async function createFieldAgentClient(input: {
       ...items,
     ]);
 
+    await syncDocOps({
+      id: `field-agent-create-${docRef.id}`,
+      kind: 'field.agent.upsert',
+      ops: [
+        {
+          op: 'set',
+          collection: 'fieldAgents',
+          docId: docRef.id,
+          data: serializeDeep({
+            ...payload,
+            createdAt: stampTimestamp(createdAt),
+          }) as Record<string, unknown>,
+        },
+      ],
+    });
+
     logDesktopActivity({
       action: 'field_agent.create',
       summary: `Created field agent ${input.name.trim()}`,
@@ -217,7 +254,6 @@ export async function updateFieldAgentClient(
   agentId: string,
   updates: Partial<Pick<FieldAgent, 'name' | 'phone' | 'email' | 'notes' | 'active'>>
 ): Promise<void> {
-  await ensureFirestoreAuthReady();
   try {
     const payload: {
       name?: string;
@@ -231,7 +267,6 @@ export async function updateFieldAgentClient(
     if (updates.email !== undefined) payload.email = updates.email?.trim() || null;
     if (updates.notes !== undefined) payload.notes = updates.notes?.trim() || null;
     if (updates.active !== undefined) payload.active = updates.active;
-    await updateDoc(doc(db, 'fieldAgents', agentId), payload);
 
     await patchLocalFieldAgents((items) =>
       items.map((a) =>
@@ -251,6 +286,20 @@ export async function updateFieldAgentClient(
           : a
       )
     );
+
+    await syncDocOps({
+      id: `field-agent-update-${agentId}`,
+      kind: 'field.agent.upsert',
+      ops: [
+        {
+          op: 'set',
+          collection: 'fieldAgents',
+          docId: agentId,
+          data: serializeDeep(payload) as Record<string, unknown>,
+          merge: true,
+        },
+      ],
+    });
 
     logDesktopActivity({
       action: 'field_agent.update',
@@ -369,34 +418,53 @@ export async function createFieldPickClient(
       pickedBy,
     };
 
-    const batch = writeBatch(db);
-    batch.set(pickRef, pickPayload);
+    const ops: PendingDocOp[] = [
+      {
+        op: 'set',
+        collection: 'fieldPicks',
+        docId: pickRef.id,
+        data: serializeDeep({
+          ...pickPayload,
+          pickedAt: stampTimestamp(pickedAt),
+        }) as Record<string, unknown>,
+      },
+    ];
 
     const movements: StockMovement[] = [];
     for (const update of stockUpdates) {
-      batch.update(doc(db, 'products', update.productId), {
-        stock: update.newStock,
+      ops.push({
+        op: 'set',
+        collection: 'products',
+        docId: update.productId,
+        data: { stock: update.newStock },
+        merge: true,
       });
 
       const movementRef = doc(collection(db, 'stockMovements'));
-      const movement: Omit<StockMovement, 'id'> = {
+      const movement: StockMovement = {
+        id: movementRef.id,
         productId: update.productId,
         productName: update.productName,
         type: 'field_pickup',
         quantityChange: -update.quantity,
         resultingStock: update.newStock,
+        referenceType: 'field_pick',
+        referenceId: pickRef.id,
         performedBy: pickedBy,
         createdAt: pickedAt,
       };
-      batch.set(movementRef, {
-        ...movement,
-        referenceType: 'field_pick',
-        referenceId: pickRef.id,
+      const { id: movementId, ...movementData } = movement;
+      ops.push({
+        op: 'set',
+        collection: 'stockMovements',
+        docId: movementId,
+        data: serializeDeep({
+          ...movementData,
+          createdAt: stampTimestamp(pickedAt),
+        }) as Record<string, unknown>,
       });
-      movements.push({ id: movementRef.id, ...movement });
+      movements.push(movement);
     }
-
-    await batch.commit();
 
     await patchLocalProductStock(
       stockUpdates.map((u) => ({ productId: u.productId, stock: u.newStock }))
@@ -406,6 +474,12 @@ export async function createFieldPickClient(
       ...items,
     ]);
     await prependLocalMovements(movements);
+
+    await syncDocOps({
+      id: `field-pick-create-${pickRef.id}`,
+      kind: 'field.pick.create',
+      ops,
+    });
 
     logDesktopActivity({
       action: 'field_pick.create',
@@ -451,10 +525,7 @@ export async function submitFieldPickReportClient(
   input: SubmitFieldPickReportInput
 ): Promise<SubmitFieldPickReportResult> {
   const closedBy = await requireUserEmail();
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('You must be signed in.');
-  }
+  const cashierId = await requireCashierUid();
 
   try {
     const pick = await loadPick(input.pickId);
@@ -539,7 +610,7 @@ export async function submitFieldPickReportClient(
     const productById = new Map(returnedProducts.map((p) => [p.id, p]));
 
     const closedAt = Timestamp.now();
-    const batch = writeBatch(db);
+    const ops: PendingDocOp[] = [];
     let saleId: string | null = null;
     let salePayload: Omit<Sale, 'id'> | null = null;
     const movements: StockMovement[] = [];
@@ -564,16 +635,22 @@ export async function submitFieldPickReportClient(
         status: 'completed',
         createdAt: closedAt,
       };
-      batch.set(saleRef, {
-        ...salePayload,
-        paymentReference: null,
-        customerId: null,
-        customerName: pick.agentName,
-        cashierId: user.uid,
-        channel: 'field',
-        fieldAgentId: pick.agentId,
-        fieldAgentName: pick.agentName,
-        fieldPickId: input.pickId,
+      ops.push({
+        op: 'set',
+        collection: 'sales',
+        docId: saleRef.id,
+        data: serializeDeep({
+          ...salePayload,
+          createdAt: stampTimestamp(closedAt),
+          paymentReference: null,
+          customerId: null,
+          customerName: pick.agentName,
+          cashierId,
+          channel: 'field',
+          fieldAgentId: pick.agentId,
+          fieldAgentName: pick.agentName,
+          fieldPickId: input.pickId,
+        }) as Record<string, unknown>,
       });
     }
 
@@ -587,13 +664,18 @@ export async function submitFieldPickReportClient(
 
       if (reportItem.quantityReturned > 0) {
         const newStock = currentStock + reportItem.quantityReturned;
-        batch.update(doc(db, 'products', reportItem.productId), {
-          stock: newStock,
+        ops.push({
+          op: 'set',
+          collection: 'products',
+          docId: reportItem.productId,
+          data: { stock: newStock },
+          merge: true,
         });
         stockPatches.push({ productId: reportItem.productId, stock: newStock });
 
         const movementRef = doc(collection(db, 'stockMovements'));
-        const movement: Omit<StockMovement, 'id'> = {
+        const movement: StockMovement = {
+          id: movementRef.id,
           productId: reportItem.productId,
           productName: reportItem.productName,
           type: 'return',
@@ -602,19 +684,27 @@ export async function submitFieldPickReportClient(
           reason: 'field_return',
           performedBy: closedBy,
           createdAt: closedAt,
-        };
-        batch.set(movementRef, {
-          ...movement,
           referenceType: 'field_pick',
           referenceId: input.pickId,
+        };
+        const { id: movementId, ...movementData } = movement;
+        ops.push({
+          op: 'set',
+          collection: 'stockMovements',
+          docId: movementId,
+          data: serializeDeep({
+            ...movementData,
+            createdAt: stampTimestamp(closedAt),
+          }) as Record<string, unknown>,
         });
-        movements.push({ id: movementRef.id, ...movement });
+        movements.push(movement);
         currentStock = newStock;
       }
 
       if (reportItem.quantityMissing > 0) {
         const movementRef = doc(collection(db, 'stockMovements'));
-        const movement: Omit<StockMovement, 'id'> = {
+        const movement: StockMovement = {
+          id: movementRef.id,
           productId: reportItem.productId,
           productName: reportItem.productName,
           type: 'lost',
@@ -623,13 +713,20 @@ export async function submitFieldPickReportClient(
           reason: `field_missing:${reportItem.quantityMissing}`,
           performedBy: closedBy,
           createdAt: closedAt,
-        };
-        batch.set(movementRef, {
-          ...movement,
           referenceType: 'field_pick',
           referenceId: input.pickId,
+        };
+        const { id: movementId, ...movementData } = movement;
+        ops.push({
+          op: 'set',
+          collection: 'stockMovements',
+          docId: movementId,
+          data: serializeDeep({
+            ...movementData,
+            createdAt: stampTimestamp(closedAt),
+          }) as Record<string, unknown>,
         });
-        movements.push({ id: movementRef.id, ...movement });
+        movements.push(movement);
       }
     }
 
@@ -646,22 +743,32 @@ export async function submitFieldPickReportClient(
       ...(saleId ? { saleId } : {}),
     };
 
-    batch.update(doc(db, 'fieldPicks', input.pickId), {
-      status: 'closed',
-      report,
-      closedAt,
-      closedBy,
+    ops.push({
+      op: 'set',
+      collection: 'fieldPicks',
+      docId: input.pickId,
+      data: serializeDeep({
+        status: 'closed',
+        report,
+        closedAt: stampTimestamp(closedAt),
+        closedBy,
+      }) as Record<string, unknown>,
+      merge: true,
     });
 
     if (agent) {
-      batch.update(doc(db, 'fieldAgents', pick.agentId), {
-        totalPicks: (agent.totalPicks ?? 0) + 1,
-        totalRevenue: (agent.totalRevenue ?? 0) + totalRevenue,
-        totalUnitsMissing: (agent.totalUnitsMissing ?? 0) + totalMissing,
+      ops.push({
+        op: 'set',
+        collection: 'fieldAgents',
+        docId: pick.agentId,
+        data: {
+          totalPicks: (agent.totalPicks ?? 0) + 1,
+          totalRevenue: (agent.totalRevenue ?? 0) + totalRevenue,
+          totalUnitsMissing: (agent.totalUnitsMissing ?? 0) + totalMissing,
+        },
+        merge: true,
       });
     }
-
-    await batch.commit();
 
     await patchLocalProductStock(stockPatches);
     await patchLocalFieldPicks((items) =>
@@ -689,6 +796,12 @@ export async function submitFieldPickReportClient(
       await prependLocalSale({ id: saleId, ...salePayload });
     }
     await prependLocalMovements(movements);
+
+    await syncDocOps({
+      id: `field-pick-submit-${input.pickId}`,
+      kind: 'field.pick.submit',
+      ops,
+    });
 
     logDesktopActivity({
       action: 'field_pick.submit_report',

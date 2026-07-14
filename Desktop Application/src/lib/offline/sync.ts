@@ -7,7 +7,9 @@ import toast from 'react-hot-toast';
 import { db } from '@/lib/firebase';
 import { isOnline, subscribeConnectivity } from './connectivity';
 import { withTimeout } from './firestore-reads';
+import { flushPendingQueue } from './flush-queue';
 import { localSet, type OfflineMeta } from './local-store';
+import { pendingWriteCount } from './pending-writes';
 
 let networkBound = false;
 let syncing = false;
@@ -41,15 +43,22 @@ export async function flushPendingWrites(): Promise<void> {
   try {
     await enableNetwork(db);
     firestoreNetworkEnabled = true;
+
+    const localFlushed = await flushPendingQueue();
+
     await withTimeout(
       waitForPendingWrites(db),
       45_000,
       'Sync timed out — will retry when online'
     );
+    const remaining = await pendingWriteCount();
     await localSet<OfflineMeta>('meta', {
       lastSyncedAt: Date.now(),
-      pendingWrites: 0,
+      pendingWrites: remaining,
     });
+    if (localFlushed > 0) {
+      console.info(`Flushed ${localFlushed} offline write(s)`);
+    }
   } catch (error) {
     console.warn('Pending write flush failed:', error);
   } finally {
@@ -69,13 +78,13 @@ export function bindOfflineSync(): () => void {
     void (async () => {
       await applyNetworkMode(online);
       if (online && !wasOnline) {
-        toast.success('Back online — syncing data…', { id: 'offline-sync' });
+        toast.success('Back online — syncing changes…', { id: 'offline-sync' });
         await flushPendingWrites();
         toast.success('Offline changes synced', { id: 'offline-sync' });
       } else if (!online && wasOnline) {
-        toast('You are offline — sales and stock still work locally', {
+        toast('Offline — changes save on this device', {
           id: 'offline-mode',
-          icon: '📡',
+          icon: '💾',
           duration: 4000,
         });
       }

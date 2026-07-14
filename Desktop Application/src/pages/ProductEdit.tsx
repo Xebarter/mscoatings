@@ -11,6 +11,7 @@ import {
 import { uploadProductImage, validateProductImage } from '@/lib/storage';
 import { downloadProductBarcodeLabel } from '@/lib/product-barcode';
 import { adminFetch } from '@/lib/admin-api';
+import { enqueueImageUpload } from '@/lib/offline/flush-queue';
 import { useOnline } from '@/hooks/useOnline';
 import { PageLoader } from '@/components/LoadingSpinner';
 
@@ -199,22 +200,26 @@ export default function ProductEditPage() {
     setIsSaving(true);
     try {
       let imageUrl = uploadedImageUrl || formData.image.trim();
+      let offlineImageDataUrl: string | null = null;
+      let offlineImageType = 'image/jpeg';
+
       if (imageFile && !uploadedImageUrl) {
         if (online) {
           imageUrl = await uploadProductImage(imageFile);
         } else {
-          // Persist a compact data URL so the product is usable offline until reconnect.
-          imageUrl = await new Promise<string>((resolve, reject) => {
+          offlineImageDataUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result ?? ''));
             reader.onerror = () => reject(new Error('Could not read image'));
             reader.readAsDataURL(imageFile);
           });
-          if (imageUrl.length > 700_000) {
+          if (offlineImageDataUrl.length > 700_000) {
             throw new Error(
               'Image is too large to save offline. Use a smaller image or connect to upload.'
             );
           }
+          imageUrl = offlineImageDataUrl;
+          offlineImageType = imageFile.type || 'image/jpeg';
         }
       }
 
@@ -253,8 +258,9 @@ export default function ProductEditPage() {
         reorderLevel: formData.reorderLevel,
       };
 
+      let savedId = productId;
       if (isNewProduct) {
-        await addProduct(productPayload);
+        savedId = await addProduct(productPayload);
         toast.success(
           online ? 'Product created' : 'Product saved offline — will sync when online'
         );
@@ -264,6 +270,16 @@ export default function ProductEditPage() {
           online ? 'Product updated' : 'Product updated offline — will sync when online'
         );
       }
+
+      if (offlineImageDataUrl && savedId) {
+        await enqueueImageUpload({
+          id: `product-image-${savedId}`,
+          productId: savedId,
+          dataUrl: offlineImageDataUrl,
+          contentType: offlineImageType,
+        });
+      }
+
       navigate('/products');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save product');

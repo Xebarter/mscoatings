@@ -1,15 +1,17 @@
 import {
   doc,
-  writeBatch,
   Timestamp,
   collection,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { ensureFirestoreAuthReady } from './admin-auth';
+import { ensureFirestoreAuthReady, getOfflineSession } from './admin-auth';
 import type { StockMovement, StockMovementType, Product } from './types';
 import { toFirestoreError, getProductById } from './firestore';
-import { getDocHybrid } from './offline/firestore-reads';
+import { isOnline } from './offline/connectivity';
+import { getDocHybrid, withTimeout } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
+import { syncDocOps } from './offline/flush-queue';
+import { serializeDeep, stampTimestamp } from './offline/pending-writes';
 import { logDesktopActivity } from './staff-activity';
 
 const ADJUSTMENT_TYPES: StockMovementType[] = [
@@ -32,34 +34,50 @@ function getQuantityChange(type: StockMovementType, quantity: number): number {
   return isDecrease ? -quantity : quantity;
 }
 
+async function resolveEmail(): Promise<string> {
+  if (auth.currentUser?.email) return auth.currentUser.email.toLowerCase();
+  const session = await getOfflineSession();
+  if (session?.email) return session.email.toLowerCase();
+  throw new Error('You must be signed in to adjust stock.');
+}
+
 async function loadProduct(productId: string): Promise<Product> {
-  const ref = doc(db, 'products', productId);
+  const mirrored = await localGet<{ items: Product[] }>('products');
+  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
+  if (fromMirror) return fromMirror;
+
+  if (!isOnline()) {
+    throw new Error('Product not available offline. Sync the catalog online once.');
+  }
+
   try {
-    const snap = await getDocHybrid(ref);
+    const snap = await getDocHybrid(doc(db, 'products', productId));
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
   }
-  const mirrored = await localGet<{ items: Product[] }>('products');
-  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
-  if (fromMirror) return fromMirror;
   const product = await getProductById(productId);
   if (!product) throw new Error('Product not found');
   return product;
 }
 
 /**
- * Stock adjustment via writeBatch — queues offline and syncs when connectivity returns.
+ * Local-first stock adjustment — IndexedDB first, Firestore queues in background.
  */
 export async function adjustStock(input: AdjustStockInput): Promise<number> {
-  await ensureFirestoreAuthReady();
-  const email = auth.currentUser?.email;
-  if (!email) throw new Error('You must be signed in to adjust stock.');
+  if (isOnline()) {
+    try {
+      await withTimeout(ensureFirestoreAuthReady(), 2_000);
+    } catch {
+      /* continue */
+    }
+  }
+
   if (!ADJUSTMENT_TYPES.includes(input.type)) throw new Error('Invalid adjustment type.');
   if (input.quantity <= 0) throw new Error('Quantity must be greater than zero.');
 
   const quantityChange = getQuantityChange(input.type, input.quantity);
-  const performedBy = email.toLowerCase();
+  const performedBy = await resolveEmail();
 
   try {
     const product = await loadProduct(input.productId);
@@ -69,7 +87,8 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
 
     const createdAt = Timestamp.now();
     const movementRef = doc(collection(db, 'stockMovements'));
-    const movement: Omit<StockMovement, 'id'> = {
+    const movement: StockMovement = {
+      id: movementRef.id,
       productId: input.productId,
       productName: product.name,
       type: input.type,
@@ -79,11 +98,6 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
       performedBy,
       createdAt,
     };
-
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'products', input.productId), { stock: newStock });
-    batch.set(movementRef, movement);
-    await batch.commit();
 
     const productsCache = await localGet<{ items: Product[]; savedAt: number }>('products');
     if (productsCache?.items) {
@@ -99,18 +113,45 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
       'stockMovements'
     );
     await localSet('stockMovements', {
-      items: [{ id: movementRef.id, ...movement }, ...(movementsCache?.items ?? [])].slice(
-        0,
-        100
-      ),
+      items: [
+        {
+          ...movement,
+          createdAt: stampTimestamp(createdAt) as unknown as StockMovement['createdAt'],
+        },
+        ...(movementsCache?.items ?? []),
+      ].slice(0, 200),
       savedAt: Date.now(),
+    });
+
+    const { id: movementId, ...movementData } = movement;
+    await syncDocOps({
+      id: `inventory-adjust-${movementId}`,
+      kind: 'inventory.adjust',
+      ops: [
+        {
+          op: 'set',
+          collection: 'products',
+          docId: input.productId,
+          data: { stock: newStock },
+          merge: true,
+        },
+        {
+          op: 'set',
+          collection: 'stockMovements',
+          docId: movementId,
+          data: serializeDeep({
+            ...movementData,
+            createdAt: stampTimestamp(createdAt),
+          }) as Record<string, unknown>,
+        },
+      ],
     });
 
     logDesktopActivity({
       action: 'inventory.adjust',
       summary: `Stock ${input.type.replace(/_/g, ' ')} · ${movement.productName} (${input.quantity})`,
       resourceType: 'stockMovement',
-      resourceId: movementRef.id,
+      resourceId: movementId,
       metrics: {
         productId: input.productId,
         productName: movement.productName,
