@@ -1,13 +1,19 @@
 import { isAdminEmail } from '@/lib/admin-auth';
+import { getAdminAuth } from '@/lib/firebase-admin';
 
 interface FirebaseLookupResponse {
   users?: Array<{ email?: string }>;
   error?: { message?: string };
 }
 
-export async function verifyAdminIdToken(
-  idToken: string
-): Promise<{ email: string } | null> {
+async function resolveEmailFromIdToken(idToken: string): Promise<string | null> {
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(idToken);
+    if (decoded.email) return decoded.email;
+  } catch {
+    /* fall through */
+  }
+
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) return null;
 
@@ -24,9 +30,13 @@ export async function verifyAdminIdToken(
   if (!response.ok) return null;
 
   const data = (await response.json()) as FirebaseLookupResponse;
-  const email = data.users?.[0]?.email;
+  return data.users?.[0]?.email ?? null;
+}
 
+export async function verifyAdminIdToken(
+  idToken: string
+): Promise<{ email: string } | null> {
+  const email = await resolveEmailFromIdToken(idToken);
   if (!email || !isAdminEmail(email)) return null;
-
   return { email };
 }

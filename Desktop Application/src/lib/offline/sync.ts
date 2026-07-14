@@ -60,7 +60,7 @@ export function bindOfflineSync(): () => void {
         await flushPendingWrites();
         toast.success('Offline changes synced', { id: 'offline-sync' });
       } else if (!online && wasOnline) {
-        toast('You are offline — POS & inventory still work', {
+        toast('You are offline — POS, inventory & field sales still work', {
           id: 'offline-mode',
           icon: '📡',
           duration: 4000,

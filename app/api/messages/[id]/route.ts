@@ -4,6 +4,7 @@ import {
   getContactMessage,
   updateContactMessageStatus,
 } from '@/lib/messages-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 import type { ContactMessageStatus } from '@/lib/erp-types';
 
 const ALLOWED: ContactMessageStatus[] = ['new', 'read', 'replied', 'archived'];
@@ -43,6 +44,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
+    const previous = await getContactMessage(id);
     const message = await updateContactMessageStatus(
       id,
       status,
@@ -53,6 +55,21 @@ export async function PATCH(
     if (!message) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
+
+    void logStaffActivitySafe({
+      action: 'message.status_change',
+      summary: `Message marked as ${status}: ${message.subject}`,
+      actorEmail: auth.staff.email,
+      actorUid: auth.staff.uid,
+      resourceType: 'contactMessage',
+      resourceId: id,
+      channel: 'api',
+      metrics: {
+        fromStatus: previous?.status ?? null,
+        toStatus: status,
+        sender: message.email,
+      },
+    });
 
     return NextResponse.json({ message });
   } catch (error) {

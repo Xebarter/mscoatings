@@ -27,6 +27,8 @@ export interface Staff {
   email: string;
   displayName: string;
   role: StaffRole;
+  /** Full Super Admin — can promote/demote admins. Bootstrap env emails always count. */
+  isSuperAdmin?: boolean;
   active: boolean;
   createdAt: Timestamp;
 }
@@ -108,6 +110,45 @@ export interface Permissions {
 }
 
 export type ContactMessageStatus = 'new' | 'read' | 'replied' | 'archived';
+
+export type StaffActivityAction =
+  | 'sale.create'
+  | 'sale.void'
+  | 'sale.refund'
+  | 'inventory.adjust'
+  | 'order.status_change'
+  | 'message.status_change'
+  | 'field_agent.create'
+  | 'field_agent.update'
+  | 'field_pick.create'
+  | 'field_pick.submit_report'
+  | 'product.create'
+  | 'product.update'
+  | 'product.delete'
+  | 'staff.create'
+  | 'staff.update'
+  | 'staff.delete'
+  | 'customer.create'
+  | 'customer.update'
+  | 'customer.payment';
+
+export type StaffActivityChannel = 'web_admin' | 'desktop' | 'api' | 'system';
+
+export interface StaffActivityLog {
+  id: string;
+  action: StaffActivityAction;
+  category: 'pos' | 'inventory' | 'orders' | 'messages' | 'field_sales' | 'products' | 'staff' | 'customers' | 'other';
+  summary: string;
+  actorEmail: string;
+  actorUid?: string;
+  actorDisplayName?: string;
+  resourceType?: string;
+  resourceId?: string;
+  channel: StaffActivityChannel;
+  metrics?: Record<string, string | number | boolean | null>;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
 
 export interface ContactMessage {
   id: string;

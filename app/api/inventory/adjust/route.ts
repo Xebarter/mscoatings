@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffApi } from '@/lib/api-auth';
 import { adjustStock } from '@/lib/inventory-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 import type { StockMovementType } from '@/lib/erp-types';
 
 export async function POST(request: NextRequest) {
@@ -15,6 +16,23 @@ export async function POST(request: NextRequest) {
       quantity: body.quantity,
       reason: body.reason ?? '',
       performedBy: auth.staff.email,
+    });
+
+    void logStaffActivitySafe({
+      action: 'inventory.adjust',
+      summary: `Adjusted stock for ${String(body.productId)} (${body.type}, qty ${body.quantity})`,
+      actorEmail: auth.staff.email,
+      actorUid: auth.staff.uid,
+      resourceType: 'product',
+      resourceId: String(body.productId ?? ''),
+      channel: 'api',
+      metrics: {
+        type: String(body.type ?? ''),
+        quantity: Number(body.quantity) || 0,
+        reason: body.reason ? String(body.reason) : null,
+        resultingStock:
+          typeof result?.resultingStock === 'number' ? result.resultingStock : null,
+      },
     });
 
     return NextResponse.json(result);

@@ -66,6 +66,7 @@ export default function ProductCard({
           <ProductImage
             src={product.image}
             alt={imageAlt}
+            productId={product.id}
             variant="card"
           />
           <div

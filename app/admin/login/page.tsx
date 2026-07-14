@@ -9,7 +9,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ADMIN_ACCESS_DENIED_MESSAGE, userHasAdminRole } from '@/lib/admin-auth';
+import { ADMIN_ACCESS_DENIED_MESSAGE, isAdminEmail } from '@/lib/admin-auth';
+import { getStaffByEmailClient } from '@/lib/firestore';
 import {
   getGoogleAuthErrorMessage,
   getGoogleRedirectResultOnce,
@@ -19,6 +20,15 @@ import toast from 'react-hot-toast';
 import { LogIn } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import Logo from '@/components/logo';
+
+async function userCanAccessAdminConsole(user: User): Promise<boolean> {
+  if (!user.email) return false;
+  if (isAdminEmail(user.email)) return true;
+  const staff = await getStaffByEmailClient(user.email);
+  return Boolean(
+    staff?.active && (staff.isSuperAdmin === true || staff.role === 'admin')
+  );
+}
 
 function getEmailLoginErrorMessage(error: unknown): string {
   if (!(error instanceof FirebaseError)) {
@@ -76,7 +86,7 @@ export default function AdminLoginPage() {
     async (user: User, options?: { showSuccessToast?: boolean; fromUserAction?: boolean }) => {
       if (authHandledRef.current) return;
 
-      if (!userHasAdminRole(user)) {
+      if (!(await userCanAccessAdminConsole(user))) {
         await signOut(auth);
         if (options?.fromUserAction ?? true) {
           toast.error(ADMIN_ACCESS_DENIED_MESSAGE);

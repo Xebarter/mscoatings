@@ -45,6 +45,7 @@ export default function CartPage() {
                     <ProductImage
                       src={item.image}
                       alt={item.productName}
+                      productId={item.productId}
                       variant="inline"
                     />
                   </div>

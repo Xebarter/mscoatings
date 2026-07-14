@@ -8,6 +8,7 @@ import { auth, db } from '@/lib/firebase';
 import { ensureFirestoreAuthReady } from '@/lib/admin-auth';
 import type { StockMovement, StockMovementType } from '@/lib/erp-types';
 import { toFirestoreError } from '@/lib/firestore';
+import { logClientActivity } from '@/lib/staff-activity-client';
 
 const ADJUSTMENT_TYPES: StockMovementType[] = [
   'adjustment_add',
@@ -66,7 +67,7 @@ export async function adjustStockClient(
   const performedBy = email.toLowerCase();
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
       const productRef = doc(db, 'products', input.productId);
       const productSnap = await transaction.get(productRef);
 
@@ -115,6 +116,24 @@ export async function adjustStockClient(
         },
       };
     });
+
+    logClientActivity({
+      action: 'inventory.adjust',
+      summary: `Stock ${input.type.replace(/_/g, ' ')} · ${result.movement.productName} (${input.quantity})`,
+      resourceType: 'stockMovement',
+      resourceId: result.movementId,
+      channel: 'web_admin',
+      metrics: {
+        productId: input.productId,
+        productName: result.movement.productName,
+        type: input.type,
+        quantity: input.quantity,
+        quantityChange: result.movement.quantityChange,
+        resultingStock: result.resultingStock,
+      },
+    });
+
+    return result;
   } catch (error) {
     throw toFirestoreError(error);
   }

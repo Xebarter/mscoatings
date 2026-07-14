@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffApi } from '@/lib/api-auth';
 import { getSaleById, refundOrCancelSale, voidSale } from '@/lib/sales-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 
 export async function GET(
   request: NextRequest,
@@ -40,8 +41,26 @@ export async function PATCH(
 
     if (action === 'cancelled') {
       await voidSale(id);
+      void logStaffActivitySafe({
+        action: 'sale.void',
+        summary: `Voided sale ${id}`,
+        actorEmail: auth.staff.email,
+        actorUid: auth.staff.uid,
+        resourceType: 'sale',
+        resourceId: id,
+        channel: 'api',
+      });
     } else {
       await refundOrCancelSale(id, action, auth.staff.email);
+      void logStaffActivitySafe({
+        action: 'sale.refund',
+        summary: `Refunded sale ${id}`,
+        actorEmail: auth.staff.email,
+        actorUid: auth.staff.uid,
+        resourceType: 'sale',
+        resourceId: id,
+        channel: 'api',
+      });
     }
     return NextResponse.json({ success: true });
   } catch (error) {

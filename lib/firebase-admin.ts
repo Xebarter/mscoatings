@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
 const FIREBASE_ADMIN_MISSING_MESSAGE =
@@ -63,6 +64,11 @@ function initializeFirebaseAdmin() {
 export function getAdminFirestore() {
   initializeFirebaseAdmin();
   return getFirestore();
+}
+
+export function getAdminAuth() {
+  initializeFirebaseAdmin();
+  return getAuth();
 }
 
 export function getAdminTimestamp() {

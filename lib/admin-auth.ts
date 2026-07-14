@@ -2,7 +2,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './firebase';
 
 export const ADMIN_ACCESS_DENIED_MESSAGE =
-  'This account does not have admin access. Your email must be listed in NEXT_PUBLIC_ADMIN_EMAILS.';
+  'This account does not have admin access. Ask a Super Admin to grant Admin access, or use an approved Super Admin email.';
 
 export function getAdminEmails(): string[] {
   const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? '';

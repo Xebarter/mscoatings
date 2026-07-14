@@ -12,6 +12,7 @@ import { auth, db } from '@/lib/firebase';
 import { ensureFirestoreAuthReady } from '@/lib/admin-auth';
 import type { Sale, SaleItem, SalePaymentMethod } from '@/lib/erp-types';
 import { toFirestoreError } from '@/lib/firestore';
+import { logClientActivity } from '@/lib/staff-activity-client';
 
 interface CreateSaleInput {
   items: Array<{
@@ -52,7 +53,7 @@ export async function createSaleClient(input: CreateSaleInput): Promise<Sale> {
   const cashierId = user.uid;
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const sale = await runTransaction(db, async (transaction) => {
       // Phase 1: all reads first
       const productRefs = input.items.map((item) =>
         doc(db, 'products', item.productId)
@@ -194,6 +195,22 @@ export async function createSaleClient(input: CreateSaleInput): Promise<Sale> {
         customerName: input.customerName,
       } satisfies Sale;
     });
+
+    logClientActivity({
+      action: 'sale.create',
+      summary: `POS sale ${sale.receiptNumber} · ${sale.items.length} item(s)`,
+      resourceType: 'sale',
+      resourceId: sale.id,
+      channel: 'web_admin',
+      metrics: {
+        totalAmount: sale.totalAmount,
+        itemCount: sale.items.length,
+        paymentMethod: sale.paymentMethod,
+        receiptNumber: sale.receiptNumber,
+      },
+    });
+
+    return sale;
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -336,6 +353,15 @@ export async function voidSaleClient(
 
       transaction.delete(saleRef);
     });
+
+    logClientActivity({
+      action: 'sale.void',
+      summary: `Voided sale ${receiptNumber ?? saleId}`,
+      resourceType: 'sale',
+      resourceId: saleId,
+      channel: 'web_admin',
+      metrics: { receiptNumber: receiptNumber ?? null },
+    });
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -353,6 +379,8 @@ export async function refundOrCancelSaleClient(
   }
 
   try {
+    let receiptNumber = '';
+    let totalAmount = 0;
     await runTransaction(db, async (transaction) => {
       const saleRef = doc(db, 'sales', saleId);
       const saleSnap = await transaction.get(saleRef);
@@ -362,6 +390,8 @@ export async function refundOrCancelSaleClient(
       }
 
       const sale = saleSnap.data() as Omit<Sale, 'id'>;
+      receiptNumber = sale.receiptNumber;
+      totalAmount = sale.totalAmount;
 
       if (sale.status !== 'completed') {
         throw new Error(`Sale is already ${sale.status}`);
@@ -427,6 +457,18 @@ export async function refundOrCancelSaleClient(
 
         transaction.update(customerRef, updates);
       }
+    });
+
+    logClientActivity({
+      action: 'sale.refund',
+      summary: `Refunded sale ${receiptNumber || saleId}`,
+      resourceType: 'sale',
+      resourceId: saleId,
+      channel: 'web_admin',
+      metrics: {
+        receiptNumber: receiptNumber || null,
+        totalAmount,
+      },
     });
   } catch (error) {
     throw toFirestoreError(error);

@@ -24,16 +24,25 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import { cn } from '@/lib/utils';
 import { useOnline } from '@/hooks/useOnline';
 import { useAdminAlerts } from '@/hooks/useAdminAlerts';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { Permissions } from '@/lib/types';
 
-const navItems = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true, badge: null as null | 'orders' | 'messages' },
-  { to: '/pos', label: 'Point of Sale', icon: ScanBarcode, badge: null },
-  { to: '/products', label: 'Products', icon: Package, badge: null },
-  { to: '/inventory', label: 'Inventory', icon: Warehouse, badge: null },
-  { to: '/field-sales', label: 'Field Sales', icon: Truck, badge: null },
-  { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' as const },
-  { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages' as const },
-  { to: '/reports', label: 'Reports', icon: BarChart3, badge: null },
+const navItems: {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  badge?: null | 'orders' | 'messages';
+  permission?: keyof Permissions;
+}[] = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/pos', label: 'Point of Sale', icon: ScanBarcode, permission: 'accessPos' },
+  { to: '/products', label: 'Products', icon: Package },
+  { to: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'adjustStock' },
+  { to: '/field-sales', label: 'Field Sales', icon: Truck, permission: 'manageFieldSales' },
+  { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
+  { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages', permission: 'viewMessages' },
+  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'viewReports' },
 ];
 
 function AlertBadge({ count, active }: { count: number; active: boolean }) {
@@ -53,7 +62,12 @@ function AlertBadge({ count, active }: { count: number; active: boolean }) {
 export default function Layout() {
   const location = useLocation();
   const online = useOnline();
+  const { can } = usePermissions();
   const { alerts, muted, toggleMute } = useAdminAlerts(online);
+
+  const visibleNav = navItems.filter(
+    (item) => !item.permission || can(item.permission)
+  );
 
   const handleLogout = async () => {
     try {
@@ -85,13 +99,16 @@ export default function Layout() {
             Menu
           </p>
           <div className="flex flex-col gap-1">
-            {navItems.map(({ to, label, icon: Icon, end, badge }) => {
+            {visibleNav.map(({ to, label, icon: Icon, end, badge }) => {
               const count =
                 badge === 'orders'
                   ? alerts.pendingOrders
                   : badge === 'messages'
                     ? alerts.newMessages
                     : 0;
+              const nestedActive =
+                to === '/field-sales' &&
+                location.pathname.startsWith('/field-sales');
 
               return (
                 <NavLink
@@ -101,7 +118,7 @@ export default function Layout() {
                   className={({ isActive }) =>
                     cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                      isActive
+                      isActive || nestedActive
                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
                         : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     )

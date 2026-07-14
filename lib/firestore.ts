@@ -16,6 +16,7 @@ import { FirebaseError } from 'firebase/app';
 import { ensureFirestoreAuthReady } from './admin-auth';
 import { db } from './firebase';
 import type { Customer, Sale, Staff, StockMovement } from './erp-types';
+import { logClientActivity } from '@/lib/staff-activity-client';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered';
 
@@ -116,6 +117,18 @@ export async function addProduct(productData: Omit<Product, 'id' | 'createdAt'>)
       costPrice: productData.costPrice ?? 0,
       createdAt: Timestamp.now(),
     });
+    logClientActivity({
+      action: 'product.create',
+      summary: `Created product ${productData.name}`,
+      resourceType: 'product',
+      resourceId: docRef.id,
+      channel: 'web_admin',
+      metrics: {
+        price: productData.price,
+        stock: productData.stock,
+        category: productData.category,
+      },
+    });
     return docRef.id;
   } catch (error) {
     console.error('Error adding product:', error);
@@ -161,6 +174,18 @@ export async function updateProduct(
     await ensureAdminFirestoreAccess();
     const productRef = doc(productsCollection, productId);
     await updateDoc(productRef, updates);
+    logClientActivity({
+      action: 'product.update',
+      summary: `Updated product ${updates.name ?? productId}`,
+      resourceType: 'product',
+      resourceId: productId,
+      channel: 'web_admin',
+      metrics: {
+        price: updates.price ?? null,
+        stock: updates.stock ?? null,
+        category: updates.category ?? null,
+      },
+    });
   } catch (error) {
     console.error('Error updating product:', error);
     throw toFirestoreError(error);
@@ -171,6 +196,13 @@ export async function deleteProduct(productId: string) {
   try {
     await ensureAdminFirestoreAccess();
     await deleteDoc(doc(productsCollection, productId));
+    logClientActivity({
+      action: 'product.delete',
+      summary: `Deleted product ${productId}`,
+      resourceType: 'product',
+      resourceId: productId,
+      channel: 'web_admin',
+    });
   } catch (error) {
     console.error('Error deleting product:', error);
     throw toFirestoreError(error);
@@ -226,6 +258,14 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
     await ensureAdminFirestoreAccess();
     const orderRef = doc(ordersCollection, orderId);
     await updateDoc(orderRef, { status });
+    logClientActivity({
+      action: 'order.status_change',
+      summary: `Order status → ${status}`,
+      resourceType: 'order',
+      resourceId: orderId,
+      channel: 'web_admin',
+      metrics: { status },
+    });
   } catch (error) {
     console.error('Error updating order:', error);
     throw toFirestoreError(error);
@@ -267,11 +307,24 @@ export async function getStaffMembers(): Promise<Staff[]> {
     await ensureAdminFirestoreAccess();
     const snapshot = await getDocs(staffCollection);
     return snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }) as Staff)
-      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      .map(
+        (docSnap) =>
+          ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }) as Staff
+      )
+      .sort((a, b) => {
+        const aMs =
+          a.createdAt && typeof a.createdAt.toMillis === 'function'
+            ? a.createdAt.toMillis()
+            : 0;
+        const bMs =
+          b.createdAt && typeof b.createdAt.toMillis === 'function'
+            ? b.createdAt.toMillis()
+            : 0;
+        return bMs - aMs;
+      });
   } catch (error) {
     console.error('Error getting staff:', error);
     throw toFirestoreError(error);
@@ -280,10 +333,15 @@ export async function getStaffMembers(): Promise<Staff[]> {
 
 export async function getStaffByEmailClient(email: string): Promise<Staff | null> {
   try {
-    const q = query(
-      staffCollection,
-      where('email', '==', email.trim().toLowerCase())
-    );
+    const normalized = email.trim().toLowerCase();
+    // Prefer direct doc get (works for pending users reading their own record)
+    const id = normalized.replace('@', '_at_').replace(/\./g, '_dot_');
+    const byId = await getDoc(doc(staffCollection, id));
+    if (byId.exists()) {
+      return { id: byId.id, ...byId.data() } as Staff;
+    }
+
+    const q = query(staffCollection, where('email', '==', normalized));
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
     const docSnap = snapshot.docs[0];

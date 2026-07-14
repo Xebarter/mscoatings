@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffApi } from '@/lib/api-auth';
 import { createCustomer, listCustomers } from '@/lib/customers-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 
 export async function GET(request: NextRequest) {
   const auth = await requireStaffApi(request, 'manageCustomers');
@@ -27,6 +28,21 @@ export async function POST(request: NextRequest) {
       email: body.email,
       notes: body.notes,
     });
+
+    void logStaffActivitySafe({
+      action: 'customer.create',
+      summary: `Created customer ${String(body.name ?? '').trim() || customerId}`,
+      actorEmail: auth.staff.email,
+      actorUid: auth.staff.uid,
+      resourceType: 'customer',
+      resourceId: customerId,
+      channel: 'api',
+      metrics: {
+        phone: body.phone ? String(body.phone) : null,
+        email: body.email ? String(body.email) : null,
+      },
+    });
+
     return NextResponse.json({ customerId }, { status: 201 });
   } catch (error) {
     console.error('Create customer error:', error);

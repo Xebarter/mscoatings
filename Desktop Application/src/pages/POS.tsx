@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  Camera,
   Minus,
   Plus,
   Search,
@@ -11,13 +12,18 @@ import {
   CreditCard,
   X,
 } from 'lucide-react';
-import { getProducts, getProductByBarcode } from '@/lib/firestore';
-import { createSale, PAYMENT_METHODS } from '@/lib/sales';
+import { getProducts, getProductByBarcode, getSaleById } from '@/lib/firestore';
+import { createSale, PAYMENT_METHODS, voidSale } from '@/lib/sales';
 import { formatUgx } from '@/lib/currency';
-import type { Product, SalePaymentMethod } from '@/lib/types';
+import type { Product, Sale, SalePaymentMethod } from '@/lib/types';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOnline } from '@/hooks/useOnline';
+import { usePermissions } from '@/hooks/usePermissions';
 import Panel from '@/components/Panel';
+import ProductThumb from '@/components/ProductThumb';
+import SaleReceiptModal from '@/components/pos/SaleReceiptModal';
+import CameraScannerModal from '@/components/CameraScannerModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { PageLoader } from '@/components/LoadingSpinner';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +34,7 @@ interface CartItem {
 
 export default function POSPage() {
   const online = useOnline();
+  const { can } = usePermissions();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
@@ -36,7 +43,12 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>('cash');
   const [amountTendered, setAmountTendered] = useState('');
-
+  const [paymentReference, setPaymentReference] = useState('');
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<'void' | null>(null);
   useEffect(() => {
     void getProducts()
       .then((data) => setProducts(data.filter((p) => p.stock > 0)))
@@ -98,7 +110,10 @@ export default function POSPage() {
     [products, addToCart]
   );
 
-  useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !checkoutOpen });
+  useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    enabled: !checkoutOpen && !cameraOpen && !receiptOpen,
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -142,7 +157,7 @@ export default function POSPage() {
     if (!cart.length) return;
     setProcessing(true);
     try {
-      await createSale({
+      const saleId = await createSale({
         items: cart.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -150,6 +165,10 @@ export default function POSPage() {
         paymentMethod,
         amountTendered:
           paymentMethod === 'cash' ? parseFloat(amountTendered) || cartTotal : undefined,
+        paymentReference:
+          paymentMethod === 'mobile_money' && paymentReference.trim()
+            ? paymentReference.trim()
+            : undefined,
       });
       toast.success(
         online ? 'Sale completed!' : 'Sale saved offline — will sync when online'
@@ -157,12 +176,41 @@ export default function POSPage() {
       setCart([]);
       setCheckoutOpen(false);
       setAmountTendered('');
+      setPaymentReference('');
       const updated = await getProducts();
       setProducts(updated.filter((p) => p.stock > 0));
+
+      try {
+        const sale = await getSaleById(saleId);
+        if (sale) {
+          setReceiptSale(sale);
+          setReceiptOpen(true);
+        }
+      } catch {
+        /* receipt modal optional if cache miss */
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Checkout failed');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleVoidReceiptSale = async () => {
+    if (!receiptSale) return;
+    setReceiptBusy(true);
+    try {
+      await voidSale(receiptSale.id, receiptSale);
+      toast.success('Sale voided');
+      setConfirmKind(null);
+      setReceiptOpen(false);
+      setReceiptSale(null);
+      const updated = await getProducts();
+      setProducts(updated.filter((p) => p.stock > 0));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Void failed');
+    } finally {
+      setReceiptBusy(false);
     }
   };
 
@@ -179,11 +227,21 @@ export default function POSPage() {
               : 'Offline POS enabled — sales queue until you reconnect'}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-blue-700">
-          <ScanBarcode size={18} />
-          <span className="text-sm font-medium">
-            {online ? 'Scanner active' : 'Offline · Scanner active'}
-          </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            <Camera size={16} />
+            Camera scan
+          </button>
+          <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-blue-700">
+            <ScanBarcode size={18} />
+            <span className="text-sm font-medium">
+              {online ? 'Scanner active' : 'Offline · Scanner active'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -208,8 +266,13 @@ export default function POSPage() {
                 onClick={() => addToCart(product)}
                 className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg">
-                  🎨
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                  <ProductThumb
+                    productId={product.id}
+                    src={product.image}
+                    alt={product.name}
+                    className="h-full w-full"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{product.name}</p>
@@ -247,6 +310,14 @@ export default function POSPage() {
                         exit={{ opacity: 0, height: 0 }}
                         className="flex items-center gap-3 rounded-lg bg-slate-50 p-3"
                       >
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md">
+                          <ProductThumb
+                            productId={item.product.id}
+                            src={item.product.image}
+                            alt={item.product.name}
+                            className="h-full w-full"
+                          />
+                        </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-slate-900">
                             {item.product.name}
@@ -378,6 +449,21 @@ export default function POSPage() {
                 </div>
               )}
 
+              {paymentMethod === 'mobile_money' && (
+                <div className="mb-4">
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Payment Reference <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    placeholder="MM / transaction ID"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleCheckout}
@@ -390,6 +476,50 @@ export default function POSPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SaleReceiptModal
+        sale={receiptSale}
+        open={receiptOpen}
+        onClose={() => {
+          setReceiptOpen(false);
+          setReceiptSale(null);
+        }}
+        canProcessRefunds={can('processRefunds')}
+        isBusy={receiptBusy}
+        onVoid={() => setConfirmKind('void')}
+      />
+
+      <ConfirmDialog
+        open={confirmKind === 'void'}
+        variant="danger"
+        title="Void this sale?"
+        description="This cancels the sale completely. Stock will be restored and the sale record removed as if it never happened."
+        confirmLabel="Void sale"
+        cancelLabel="Keep sale"
+        loading={receiptBusy}
+        details={
+          receiptSale
+            ? [
+                { label: 'Receipt', value: receiptSale.receiptNumber },
+                { label: 'Amount', value: formatUgx(receiptSale.totalAmount) },
+                {
+                  label: 'Items',
+                  value: String(receiptSale.items.length),
+                },
+              ]
+            : undefined
+        }
+        onClose={() => {
+          if (!receiptBusy) setConfirmKind(null);
+        }}
+        onConfirm={() => void handleVoidReceiptSale()}
+      />
+
+      <CameraScannerModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onScan={(code) => void handleBarcodeScan(code)}
+      />
     </div>
   );
 }

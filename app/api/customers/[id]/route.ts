@@ -5,6 +5,7 @@ import {
   getCustomerPurchaseHistory,
   updateCustomer,
 } from '@/lib/customers-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 
 export async function GET(
   request: NextRequest,
@@ -39,6 +40,21 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     await updateCustomer(id, body);
+
+    void logStaffActivitySafe({
+      action: 'customer.update',
+      summary: `Updated customer ${id}`,
+      actorEmail: auth.staff.email,
+      actorUid: auth.staff.uid,
+      resourceType: 'customer',
+      resourceId: id,
+      channel: 'api',
+      metrics: {
+        name: body.name ? String(body.name) : null,
+        phone: body.phone ? String(body.phone) : null,
+      },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Update customer error:', error);

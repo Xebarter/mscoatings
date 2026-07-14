@@ -18,6 +18,13 @@ interface ImportMeta {
 interface ElectronAPI {
   getVersion: () => Promise<string>;
   showNotification?: (payload: { title: string; body: string }) => Promise<boolean>;
+  printPreview?: (html: string) => Promise<boolean>;
+  apiFetch?: (payload: {
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string | null;
+  }) => Promise<{ ok: boolean; status: number; body: string }>;
   platform: NodeJS.Platform;
 }
 

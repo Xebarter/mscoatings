@@ -1,10 +1,19 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  cacheProductImageFromUrl,
+  resolveCachedProductImageSrc,
+} from '@/lib/product-image-cache';
 
 type ProductImageVariant = 'card' | 'hero' | 'detail' | 'thumb' | 'inline';
 
 interface ProductImageProps {
   src: string;
   alt: string;
+  /** Used to key offline IndexedDB cache entries. */
+  productId?: string;
   variant?: ProductImageVariant;
   className?: string;
   imageClassName?: string;
@@ -45,6 +54,7 @@ const variantStyles: Record<
 export default function ProductImage({
   src,
   alt,
+  productId,
   variant = 'card',
   className,
   imageClassName,
@@ -52,19 +62,59 @@ export default function ProductImage({
   itemProp,
 }: ProductImageProps) {
   const styles = variantStyles[variant];
+  const [displaySrc, setDisplaySrc] = useState(src);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    setDisplaySrc(src);
+
+    void (async () => {
+      const resolved = await resolveCachedProductImageSrc(src, productId);
+      if (cancelled || !resolved) return;
+      setDisplaySrc(resolved);
+
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.onLine &&
+        src &&
+        !resolved.startsWith('blob:')
+      ) {
+        const ok = await cacheProductImageFromUrl(src, productId);
+        if (!ok || cancelled) return;
+        const refreshed = await resolveCachedProductImageSrc(src, productId);
+        if (!cancelled && refreshed) setDisplaySrc(refreshed);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src, productId]);
 
   return (
     <div className={cn('relative overflow-hidden', styles.frame, className)}>
-      <img
-        src={src}
-        alt={alt}
-        title={alt}
-        className={cn(styles.image, imageClassName)}
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        fetchPriority={priority ? 'high' : 'auto'}
-        itemProp={itemProp}
-      />
+      {!failed && displaySrc ? (
+        <img
+          src={displaySrc}
+          alt={alt}
+          title={alt}
+          className={cn(styles.image, imageClassName)}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={priority ? 'high' : 'auto'}
+          itemProp={itemProp}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div
+          className="flex h-full w-full items-center justify-center bg-slate-100 text-xs font-medium text-slate-400"
+          aria-hidden
+        >
+          No image
+        </div>
+      )}
     </div>
   );
 }

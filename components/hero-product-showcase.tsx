@@ -124,6 +124,7 @@ export default function HeroProductShowcase({
             key={activeProduct.id}
             src={activeProduct.image}
             alt={buildProductImageAlt(activeProduct)}
+            productId={activeProduct.id}
             variant="hero"
           />
 
@@ -174,6 +175,7 @@ export default function HeroProductShowcase({
                 <ProductImage
                   src={product.image}
                   alt=""
+                  productId={product.id}
                   variant="thumb"
                 />
               </button>

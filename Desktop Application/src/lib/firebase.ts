@@ -1,10 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, indexedDBLocalPersistence, setPersistence } from 'firebase/auth';
+import {
+  getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+} from 'firebase/auth';
 import {
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -32,10 +38,23 @@ export const db = initializeFirestore(app, {
   }),
 });
 
-export const auth = getAuth(app);
+/**
+ * Electron needs an explicit popup redirect resolver for signInWithPopup.
+ * Without it Firebase throws auth/argument-error.
+ */
+function createAuth() {
+  try {
+    return initializeAuth(app, {
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    return getAuth(app);
+  }
+}
 
-void setPersistence(auth, indexedDBLocalPersistence).catch((error) => {
-  console.warn('Auth persistence unavailable:', error);
-});
+export const auth = createAuth();
+
+export const storage = getStorage(app);
 
 export default app;

@@ -83,6 +83,7 @@ export default function ProductDetailClient({
             <ProductImage
               src={product.image}
               alt={imageAlt}
+              productId={product.id}
               variant="detail"
               priority
             />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaffApi } from '@/lib/api-auth';
 import { createSale, listSales } from '@/lib/sales-server';
+import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 
 export async function GET(request: NextRequest) {
   const auth = await requireStaffApi(request, 'accessPos');
@@ -32,6 +33,22 @@ export async function POST(request: NextRequest) {
       customerName: body.customerName,
       cashierId: auth.staff.uid,
       cashierEmail: auth.staff.email,
+    });
+
+    const itemCount = Array.isArray(body.items) ? body.items.length : 0;
+    void logStaffActivitySafe({
+      action: 'sale.create',
+      summary: `POS sale created${body.customerName ? ` for ${body.customerName}` : ''}`,
+      actorEmail: auth.staff.email,
+      actorUid: auth.staff.uid,
+      resourceType: 'sale',
+      resourceId: saleId,
+      channel: 'api',
+      metrics: {
+        itemCount,
+        paymentMethod: body.paymentMethod ? String(body.paymentMethod) : null,
+        discountTotal: Number(body.discountTotal) || 0,
+      },
     });
 
     return NextResponse.json({ saleId }, { status: 201 });

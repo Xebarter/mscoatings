@@ -26,6 +26,7 @@ import {
   Warehouse,
   Truck,
   X,
+  Users,
 } from 'lucide-react';
 
 export type AdminSection =
@@ -37,7 +38,8 @@ export type AdminSection =
   | 'inventory'
   | 'fieldSales'
   | 'reports'
-  | 'messages';
+  | 'messages'
+  | 'staff';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -61,6 +63,7 @@ const navItems: {
   { id: 'orders', label: 'Orders', icon: ShoppingBag, href: '/admin/dashboard?tab=orders' },
   { id: 'messages', label: 'Messages', icon: Inbox, href: '/admin/messages' },
   { id: 'reports', label: 'Reports', icon: BarChart3, href: '/admin/reports' },
+  { id: 'staff', label: 'Staff Access', icon: Users, href: '/admin/staff' },
 ];
 
 function resolveActiveSection(pathname: string, activeSection?: AdminSection): AdminSection {
@@ -69,6 +72,7 @@ function resolveActiveSection(pathname: string, activeSection?: AdminSection): A
   if (pathname.startsWith('/admin/inventory')) return 'inventory';
   if (pathname.startsWith('/admin/field-sales')) return 'fieldSales';
   if (pathname.startsWith('/admin/reports')) return 'reports';
+  if (pathname.startsWith('/admin/staff')) return 'staff';
   if (pathname.startsWith('/admin/messages')) return 'messages';
   if (pathname.startsWith('/admin/products')) return 'products';
   if (pathname.startsWith('/admin/orders')) return 'orders';

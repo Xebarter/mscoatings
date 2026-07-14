@@ -73,3 +73,17 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   sales: 'Sales Staff',
   inventory: 'Inventory Staff',
 };
+
+export const ASSIGNABLE_STAFF_ROLES: StaffRole[] = [
+  'admin',
+  'manager',
+  'sales',
+  'inventory',
+];
+
+/** Non-admin roles that managers/admins without Super Admin can assign. */
+export const STANDARD_STAFF_ROLES: StaffRole[] = [
+  'manager',
+  'sales',
+  'inventory',
+];

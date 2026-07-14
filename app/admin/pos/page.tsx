@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
+import ProductImage from '@/components/product-image';
 import CameraScannerModal from '@/components/admin/pos/camera-scanner-modal';
 import CheckoutModal from '@/components/admin/pos/checkout-modal';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { usePermissions } from '@/hooks/use-permissions';
 import SaleReceiptModal from '@/components/admin/pos/sale-receipt-modal';
+import ConfirmDialog from '@/components/admin/confirm-dialog';
 import { createSaleClient, voidSaleClient } from '@/lib/sales-client';
 import { formatUgx } from '@/lib/currency';
 import {
@@ -16,6 +18,7 @@ import {
   getProducts,
   type Product,
 } from '@/lib/firestore';
+import { prefetchProductImages } from '@/lib/product-image-cache';
 import type { Sale, SalePaymentMethod } from '@/lib/erp-types';
 import { Timestamp } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
@@ -46,6 +49,7 @@ export default function PosPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCancellingSale, setIsCancellingSale] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
 
   useEffect(() => {
     void loadData();
@@ -54,7 +58,9 @@ export default function PosPage() {
   const loadData = async () => {
     try {
       const productsData = await getProducts();
-      setProducts(productsData.filter((p) => p.stock > 0));
+      const inStock = productsData.filter((p) => p.stock > 0);
+      setProducts(inStock);
+      void prefetchProductImages(productsData);
     } catch {
       toast.error('Failed to load POS data');
     } finally {
@@ -180,15 +186,8 @@ export default function PosPage() {
   const handleCancelCompletedSale = async () => {
     if (!completedSale || completedSale.id.startsWith('pending-')) return;
 
-    if (
-      !confirm(
-        'Cancel this sale completely? It will be removed as if it never happened and stock will be restored.'
-      )
-    ) {
-      return;
-    }
-
     const saleToCancel = completedSale;
+    setVoidConfirmOpen(false);
     // Instant UI: close receipt immediately
     setCompletedSale(null);
     applyStockDelta(saleToCancel.items, 1);
@@ -396,10 +395,13 @@ export default function PosPage() {
                       )}
                       <div className="mb-3 flex h-24 items-center justify-center overflow-hidden rounded-xl bg-slate-50">
                         {product.image ? (
-                          <img
+                          <ProductImage
                             src={product.image}
                             alt={product.name}
-                            className="h-full w-full object-contain p-2 transition group-hover:scale-105"
+                            productId={product.id}
+                            variant="thumb"
+                            className="h-full w-full"
+                            imageClassName="p-2 transition group-hover:scale-105"
                           />
                         ) : (
                           <ShoppingCart size={28} className="text-slate-300" />
@@ -480,13 +482,21 @@ export default function PosPage() {
                       const lineTotal = item.product.price * item.quantity;
                       return (
                         <li key={item.product.id} className="flex gap-3 px-4 py-3.5">
-                          {item.product.image && (
-                            <img
-                              src={item.product.image}
-                              alt=""
-                              className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-slate-100"
-                            />
-                          )}
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-100">
+                            {item.product.image ? (
+                              <ProductImage
+                                src={item.product.image}
+                                alt={item.product.name}
+                                productId={item.product.id}
+                                variant="inline"
+                                className="h-full w-full"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-slate-50">
+                                <ShoppingCart size={16} className="text-slate-300" />
+                              </div>
+                            )}
+                          </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-slate-900">
                               {item.product.name}
@@ -573,9 +583,38 @@ export default function PosPage() {
           open={!!completedSale}
           onClose={() => setCompletedSale(null)}
           onCancelSale={
-            can('processRefunds') ? handleCancelCompletedSale : undefined
+            can('processRefunds') ? () => setVoidConfirmOpen(true) : undefined
           }
           isCancelling={isCancellingSale}
+        />
+
+        <ConfirmDialog
+          open={voidConfirmOpen && !!completedSale}
+          variant="danger"
+          title="Void this sale?"
+          description="This cancels the sale completely. Stock will be restored and the sale record removed as if it never happened."
+          confirmLabel="Void sale"
+          cancelLabel="Keep sale"
+          loading={isCancellingSale}
+          details={
+            completedSale
+              ? [
+                  { label: 'Receipt', value: completedSale.receiptNumber },
+                  {
+                    label: 'Amount',
+                    value: formatUgx(completedSale.totalAmount),
+                  },
+                  {
+                    label: 'Items',
+                    value: String(completedSale.items.length),
+                  },
+                ]
+              : undefined
+          }
+          onClose={() => {
+            if (!isCancellingSale) setVoidConfirmOpen(false);
+          }}
+          onConfirm={() => void handleCancelCompletedSale()}
         />
       </AdminLayout>
     </AdminGuard>

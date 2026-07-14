@@ -12,6 +12,7 @@ import type { StockMovement, StockMovementType, Product } from './types';
 import { toFirestoreError, getProductById } from './firestore';
 import { isOnline } from './offline/connectivity';
 import { localGet, localSet } from './offline/local-store';
+import { logDesktopActivity } from './staff-activity';
 
 const ADJUSTMENT_TYPES: StockMovementType[] = [
   'adjustment_add',
@@ -102,6 +103,21 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
         100
       ),
       savedAt: Date.now(),
+    });
+
+    logDesktopActivity({
+      action: 'inventory.adjust',
+      summary: `Stock ${input.type.replace(/_/g, ' ')} · ${movement.productName} (${input.quantity})`,
+      resourceType: 'stockMovement',
+      resourceId: movementRef.id,
+      metrics: {
+        productId: input.productId,
+        productName: movement.productName,
+        type: input.type,
+        quantity: input.quantity,
+        quantityChange: movement.quantityChange,
+        resultingStock: newStock,
+      },
     });
 
     return newStock;

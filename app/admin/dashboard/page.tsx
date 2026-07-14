@@ -7,7 +7,9 @@ import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout, { AdminSection } from '@/components/admin-layout';
 import AdminStatCard from '@/components/admin-stat-card';
+import ProductImage from '@/components/product-image';
 import { formatUgx } from '@/lib/currency';
+import { prefetchProductImages } from '@/lib/product-image-cache';
 import type { ReportSummary } from '@/lib/reports-server';
 import {
   AlertTriangle,
@@ -206,6 +208,7 @@ function DashboardContent() {
 
       setProducts(productsData);
       setOrders(ordersData);
+      void prefetchProductImages(productsData);
 
       if (dayRes?.ok) {
         const data = await dayRes.json();
@@ -706,11 +709,15 @@ function DashboardContent() {
                           className="flex w-full items-center justify-between gap-3 py-3 text-left transition first:pt-0 last:pb-0 hover:opacity-80"
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <img
-                              src={product.image}
-                              alt=""
-                              className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                            />
+                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200">
+                              <ProductImage
+                                src={product.image}
+                                alt={product.name}
+                                productId={product.id}
+                                variant="inline"
+                                className="h-full w-full"
+                              />
+                            </div>
                             <div className="min-w-0">
                               <p className="truncate font-medium text-slate-900">
                                 {product.name}
@@ -854,11 +861,15 @@ function DashboardContent() {
                           <tr key={product.id} className="transition hover:bg-slate-50/80">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <img
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200"
-                                />
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200">
+                                  <ProductImage
+                                    src={product.image}
+                                    alt={product.name}
+                                    productId={product.id}
+                                    variant="inline"
+                                    className="h-full w-full"
+                                  />
+                                </div>
                                 <p className="font-medium text-slate-900">{product.name}</p>
                               </div>
                             </td>

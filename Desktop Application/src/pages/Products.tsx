@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Search, Package } from 'lucide-react';
+import { Plus, Search, Package, Pencil } from 'lucide-react';
 import { getProducts } from '@/lib/firestore';
 import { formatUgx } from '@/lib/currency';
 import type { Product } from '@/lib/types';
 import { PageLoader, EmptyState } from '@/components/LoadingSpinner';
+import ProductThumb from '@/components/ProductThumb';
 import { cn } from '@/lib/utils';
 
 function stockStatus(product: Product): 'ok' | 'low' | 'out' {
@@ -20,6 +22,7 @@ const statusStyles = {
 };
 
 export default function ProductsPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -47,9 +50,18 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Products</h1>
-        <p className="mt-1 text-slate-500">{products.length} products in catalog</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Products</h1>
+          <p className="mt-1 text-slate-500">{products.length} products in catalog</p>
+        </div>
+        <Link
+          to="/products/new"
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        >
+          <Plus size={18} />
+          Add Product
+        </Link>
       </div>
 
       <div className="relative max-w-md">
@@ -75,18 +87,35 @@ export default function ProductsPage() {
                 <th className="px-5 py-3 font-semibold text-slate-600">Barcode</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Price</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Stock</th>
+                <th className="px-5 py-3 font-semibold text-slate-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.map((product) => {
                 const status = stockStatus(product);
                 return (
-                  <tr key={product.id} className="transition hover:bg-slate-50/80">
+                  <tr
+                    key={product.id}
+                    className="cursor-pointer transition hover:bg-slate-50/80"
+                    onClick={() => navigate(`/products/${product.id}`)}
+                  >
                     <td className="px-5 py-4">
-                      <p className="font-medium text-slate-900">{product.name}</p>
-                      {product.brand && (
-                        <p className="text-xs text-slate-500">{product.brand}</p>
-                      )}
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+                          <ProductThumb
+                            productId={product.id}
+                            src={product.image}
+                            alt={product.name}
+                            className="h-full w-full"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{product.name}</p>
+                          {product.brand && (
+                            <p className="text-xs text-slate-500">{product.brand}</p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-slate-600">{product.category}</td>
                     <td className="px-5 py-4 font-mono text-xs text-slate-500">
@@ -102,8 +131,19 @@ export default function ProductsPage() {
                           statusStyles[status]
                         )}
                       >
-                        {product.stock} {status === 'low' ? '(Low)' : status === 'out' ? '(Out)' : ''}
+                        {product.stock}{' '}
+                        {status === 'low' ? '(Low)' : status === 'out' ? '(Out)' : ''}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Link
+                        to={`/products/${product.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </Link>
                     </td>
                   </tr>
                 );

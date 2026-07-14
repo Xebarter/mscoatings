@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "wipe:ops:dry": "npx tsx --env-file=.env scripts/wipe-operational-data.ts",
+    "wipe:ops": "npx tsx --env-file=.env scripts/wipe-operational-data.ts --confirm"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

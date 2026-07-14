@@ -1,4 +1,5 @@
 import { isAdminEmail } from '@/lib/admin-auth';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import type { Permissions, StaffRole } from '@/lib/erp-types';
 import { getPermissionsForRole } from '@/lib/roles';
 import { getStaffByEmail } from '@/lib/staff-server';
@@ -13,11 +14,22 @@ export interface VerifiedStaff {
   email: string;
   role: StaffRole;
   permissions: Permissions;
+  isSuperAdmin: boolean;
 }
 
-export async function verifyStaffIdToken(
+async function lookupUserFromIdToken(
   idToken: string
-): Promise<VerifiedStaff | null> {
+): Promise<{ uid: string; email: string } | null> {
+  // Prefer Admin SDK (local cert verification) — avoids flaky Identity Toolkit HTTP timeouts.
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(idToken);
+    if (decoded.email && decoded.uid) {
+      return { uid: decoded.uid, email: decoded.email };
+    }
+  } catch {
+    /* fall through to Identity Toolkit REST */
+  }
+
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) return null;
 
@@ -39,24 +51,45 @@ export async function verifyStaffIdToken(
   const uid = user?.localId;
 
   if (!email || !uid) return null;
+  return { uid, email };
+}
+
+function toVerifiedStaff(
+  uid: string,
+  email: string,
+  role: StaffRole,
+  isSuperAdmin: boolean
+): VerifiedStaff {
+  const effectiveRole: StaffRole = isSuperAdmin ? 'admin' : role;
+  return {
+    uid,
+    email,
+    role: effectiveRole,
+    permissions: getPermissionsForRole(effectiveRole),
+    isSuperAdmin,
+  };
+}
+
+export async function verifyStaffIdToken(
+  idToken: string
+): Promise<VerifiedStaff | null> {
+  const identity = await lookupUserFromIdToken(idToken);
+  if (!identity) return null;
+
+  const { uid, email } = identity;
 
   if (isAdminEmail(email)) {
-    return {
-      uid,
-      email,
-      role: 'admin',
-      permissions: getPermissionsForRole('admin'),
-    };
+    return toVerifiedStaff(uid, email, 'admin', true);
   }
 
   const staff = await getStaffByEmail(email);
   if (staff?.active) {
-    return {
+    return toVerifiedStaff(
       uid,
-      email: staff.email,
-      role: staff.role,
-      permissions: getPermissionsForRole(staff.role),
-    };
+      staff.email,
+      staff.role,
+      Boolean(staff.isSuperAdmin)
+    );
   }
 
   return null;

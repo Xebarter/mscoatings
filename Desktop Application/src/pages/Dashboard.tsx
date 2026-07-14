@@ -144,7 +144,11 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {sales.slice(0, 5).map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between py-3">
+                <Link
+                  key={sale.id}
+                  to={`/sales/${sale.id}`}
+                  className="flex items-center justify-between py-3 transition hover:bg-slate-50/80"
+                >
                   <div>
                     <p className="font-medium text-slate-900">{sale.receiptNumber}</p>
                     <p className="text-xs text-slate-500">
@@ -154,7 +158,7 @@ export default function DashboardPage() {
                   <p className="font-semibold text-emerald-700">
                     {formatUgx(sale.totalAmount)}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -169,7 +173,11 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {lowStock.slice(0, 5).map((product) => (
-                <div key={product.id} className="flex items-center justify-between py-3">
+                <Link
+                  key={product.id}
+                  to={`/products/${product.id}`}
+                  className="flex items-center justify-between py-3 transition hover:bg-slate-50/80"
+                >
                   <div className="flex items-center gap-3">
                     <AlertTriangle size={16} className="text-amber-500" />
                     <div>
@@ -180,7 +188,7 @@ export default function DashboardPage() {
                   <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                     {product.stock} left
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}

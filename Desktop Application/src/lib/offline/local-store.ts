@@ -1,6 +1,7 @@
 const DB_NAME = 'ms-coatings-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'snapshots';
+const IMAGES_STORE = 'productImages';
 
 export type SnapshotKey =
   | 'products'
@@ -9,9 +10,17 @@ export type SnapshotKey =
   | 'stockMovements'
   | 'fieldAgents'
   | 'fieldPicks'
+  | 'customers'
   | 'session'
   | 'reportCache'
   | 'meta';
+
+export interface CachedProductImage {
+  productId: string;
+  sourceUrl: string;
+  blob: Blob;
+  cachedAt: number;
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -22,6 +31,9 @@ function openDb(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE);
+      }
+      if (!db.objectStoreNames.contains(IMAGES_STORE)) {
+        db.createObjectStore(IMAGES_STORE, { keyPath: 'productId' });
       }
     };
   });
@@ -66,6 +78,38 @@ export async function localRemove(key: SnapshotKey): Promise<void> {
     });
   } catch {
     /* ignore */
+  }
+}
+
+export async function getCachedProductImage(
+  productId: string
+): Promise<CachedProductImage | null> {
+  try {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IMAGES_STORE, 'readonly');
+      const req = tx.objectStore(IMAGES_STORE).get(productId);
+      req.onsuccess = () => resolve((req.result as CachedProductImage) ?? null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedProductImage(
+  entry: CachedProductImage
+): Promise<void> {
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IMAGES_STORE, 'readwrite');
+      tx.objectStore(IMAGES_STORE).put(entry);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.warn('Failed to cache product image:', entry.productId, error);
   }
 }
 

@@ -4,7 +4,7 @@ import { isOnline } from './offline/connectivity';
 import { localGet, localSet, localRemove, type OfflineSession } from './offline/local-store';
 
 export const ADMIN_ACCESS_DENIED_MESSAGE =
-  'This account does not have admin access. Your email must be listed in VITE_ADMIN_EMAILS.';
+  'Your account does not have access yet. Ask a Super Admin to approve you from the web admin dashboard.';
 
 export function getAdminEmails(): string[] {
   const raw = import.meta.env.VITE_ADMIN_EMAILS ?? '';

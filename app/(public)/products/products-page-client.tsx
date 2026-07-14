@@ -7,6 +7,7 @@ import ProductCard from '@/components/product-card';
 import SearchBar from '@/components/search-bar';
 import Breadcrumbs from '@/components/breadcrumbs';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
+import { prefetchProductImages } from '@/lib/product-image-cache';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
 interface ProductsPageClientProps {
@@ -26,10 +27,13 @@ function ProductsPageContent({ products: initialProducts }: ProductsPageClientPr
   useEffect(() => {
     let cancelled = false;
 
+    void prefetchProductImages(initialProducts);
+
     fetchLiveCatalogProducts()
       .then((liveProducts) => {
         if (!cancelled) {
           setProducts(liveProducts);
+          void prefetchProductImages(liveProducts);
         }
       })
       .catch(() => {});
@@ -37,7 +41,7 @@ function ProductsPageContent({ products: initialProducts }: ProductsPageClientPr
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialProducts]);
 
   useEffect(() => {
     setSearchQuery(initialQuery);

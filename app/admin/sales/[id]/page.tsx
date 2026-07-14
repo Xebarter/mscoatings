@@ -6,6 +6,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
+import ConfirmDialog from '@/components/admin/confirm-dialog';
 import Receipt from '@/components/admin/pos/receipt';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
@@ -26,6 +27,7 @@ export default function SaleDetailPage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<'void' | 'refund' | null>(null);
 
   useEffect(() => {
     void loadSale();
@@ -44,12 +46,11 @@ export default function SaleDetailPage() {
   };
 
   const handleRefund = async () => {
-    if (!confirm('Are you sure you want to refund this sale?')) return;
-
     setIsUpdating(true);
     try {
       await refundOrCancelSaleClient(saleId, 'refunded');
       toast.success('Sale refunded');
+      setConfirmKind(null);
       void loadSale();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update sale');
@@ -59,18 +60,11 @@ export default function SaleDetailPage() {
   };
 
   const handleCancel = async () => {
-    if (
-      !confirm(
-        'Cancel this sale completely? It will be removed as if it never happened, stock will be restored, and you will return to POS.'
-      )
-    ) {
-      return;
-    }
-
     setIsUpdating(true);
     try {
       await voidSaleClient(saleId, sale ?? undefined);
       toast.success('Sale cancelled');
+      setConfirmKind(null);
       router.push('/admin/pos');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to cancel sale');
@@ -114,7 +108,7 @@ export default function SaleDetailPage() {
                 <>
                   <button
                     type="button"
-                    onClick={handleRefund}
+                    onClick={() => setConfirmKind('refund')}
                     disabled={isUpdating}
                     className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
                   >
@@ -123,7 +117,7 @@ export default function SaleDetailPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleCancel}
+                    onClick={() => setConfirmKind('void')}
                     disabled={isUpdating}
                     className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
                   >
@@ -148,21 +142,62 @@ export default function SaleDetailPage() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500">Cashier: </span>
-                  <span className="font-medium">{sale.cashierEmail}</span>
-                </div>
-                <div>
                   <span className="text-slate-500">Total: </span>
-                  <span className="font-bold">{formatUgx(sale.totalAmount)}</span>
+                  <span className="font-semibold">
+                    {formatUgx(sale.totalAmount)}
+                  </span>
                 </div>
               </div>
-
               <Receipt sale={sale} />
             </div>
           </div>
         ) : (
           <p className="text-slate-600">Sale not found.</p>
         )}
+
+        <ConfirmDialog
+          open={confirmKind === 'void'}
+          variant="danger"
+          title="Void this sale?"
+          description="This cancels the sale completely. Stock will be restored, the sale record removed, and you will return to POS."
+          confirmLabel="Void sale"
+          cancelLabel="Keep sale"
+          loading={isUpdating}
+          details={
+            sale
+              ? [
+                  { label: 'Receipt', value: sale.receiptNumber },
+                  { label: 'Amount', value: formatUgx(sale.totalAmount) },
+                ]
+              : undefined
+          }
+          onClose={() => {
+            if (!isUpdating) setConfirmKind(null);
+          }}
+          onConfirm={() => void handleCancel()}
+        />
+
+        <ConfirmDialog
+          open={confirmKind === 'refund'}
+          variant="warning"
+          title="Refund this sale?"
+          description="Stock will be restored and the sale will be marked as refunded."
+          confirmLabel="Refund sale"
+          cancelLabel="Keep sale"
+          loading={isUpdating}
+          details={
+            sale
+              ? [
+                  { label: 'Receipt', value: sale.receiptNumber },
+                  { label: 'Amount', value: formatUgx(sale.totalAmount) },
+                ]
+              : undefined
+          }
+          onClose={() => {
+            if (!isUpdating) setConfirmKind(null);
+          }}
+          onConfirm={() => void handleRefund()}
+        />
       </AdminLayout>
     </AdminGuard>
   );

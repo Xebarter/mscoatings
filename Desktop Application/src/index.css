@@ -1,10 +1,15 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --color-navy: #0f172a;
   --color-premium-blue: #0077c8;
   --color-cyan: #19b5fe;
+  --color-orange: #f57c00;
+  --color-performance-red: #e53935;
+  --color-gold: #ffc107;
 }
 
 * {

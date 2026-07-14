@@ -12,6 +12,7 @@ import { BRAND_ASSETS } from '@/lib/brand';
 import { formatUgx } from '@/lib/currency';
 import { buildProductImageAlt } from '@/lib/seo/images';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
+import { prefetchProductImages } from '@/lib/product-image-cache';
 import { HOME_FAQS } from '@/lib/seo/faqs';
 import type { SeoProduct } from '@/lib/seo/json-ld';
 
@@ -28,10 +29,13 @@ export default function HomePageClient({ products: initialProducts }: HomePageCl
   useEffect(() => {
     let cancelled = false;
 
+    void prefetchProductImages(initialProducts);
+
     fetchLiveCatalogProducts()
       .then((liveProducts) => {
         if (!cancelled) {
           setProducts(liveProducts);
+          void prefetchProductImages(liveProducts);
         }
       })
       .catch(() => {});
@@ -39,7 +43,7 @@ export default function HomePageClient({ products: initialProducts }: HomePageCl
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialProducts]);
 
   const featuredProduct = products.find(
     (product) => product.image?.trim() && product.stock > 0
@@ -134,6 +138,7 @@ export default function HomePageClient({ products: initialProducts }: HomePageCl
                       <ProductImage
                         src={featuredProduct.image}
                         alt={buildProductImageAlt(featuredProduct)}
+                        productId={featuredProduct.id}
                         variant="thumb"
                       />
                     </div>

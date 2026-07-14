@@ -98,6 +98,7 @@ export default function SearchBar({
                     <ProductImage
                       src={product.image}
                       alt={buildProductImageAlt(product)}
+                      productId={product.id}
                       variant="inline"
                     />
                   </div>

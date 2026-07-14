@@ -1,22 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Archive, Inbox, Mail, MailOpen, RefreshCw } from 'lucide-react';
+import { Archive, Inbox, Mail, MailOpen, RefreshCw, Search } from 'lucide-react';
 import { adminFetch, API_BASE } from '@/lib/admin-api';
+import {
+  listContactMessagesClient,
+  updateContactMessageClient,
+  type ContactMessage,
+  type ContactMessageStatus,
+} from '@/lib/messages';
 import { useOnline } from '@/hooks/useOnline';
 import Panel from '@/components/Panel';
 import { PageLoader } from '@/components/LoadingSpinner';
 import { cn } from '@/lib/utils';
-
-type ContactMessage = {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  subject: string;
-  message: string;
-  status: 'new' | 'read' | 'archived' | 'replied';
-  createdAt?: string;
-};
 
 function formatWhen(iso?: string) {
   if (!iso) return '—';
@@ -39,21 +34,43 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'new' | 'read' | 'archived'>('all');
+  const [filter, setFilter] = useState<'all' | ContactMessageStatus>('all');
+  const [search, setSearch] = useState('');
+  const [notes, setNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [source, setSource] = useState<'api' | 'firestore'>('api');
 
   const load = async () => {
     if (!online) {
       setLoading(false);
       return;
     }
+
     try {
-      const res = await adminFetch('/api/messages');
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      setMessages(data.messages ?? []);
+      try {
+        const res = await adminFetch('/api/messages?status=all');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+          );
+        }
+        setMessages((data.messages as ContactMessage[]) ?? []);
+        setSource('api');
+        bumpAlerts();
+        return;
+      } catch (apiError) {
+        console.warn('Messages API unavailable, using Firestore', apiError);
+      }
+
+      const local = await listContactMessagesClient('all');
+      setMessages(local);
+      setSource('firestore');
       bumpAlerts();
-    } catch {
-      toast.error('Could not load messages');
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not load messages'
+      );
     } finally {
       setLoading(false);
     }
@@ -65,22 +82,99 @@ export default function MessagesPage() {
   }, [online]);
 
   const selected = messages.find((m) => m.id === selectedId) ?? null;
-  const filtered = messages.filter((m) => (filter === 'all' ? true : m.status === filter));
 
-  const patchStatus = async (id: string, status: ContactMessage['status']) => {
+  useEffect(() => {
+    setNotes(selected?.adminNotes ?? '');
+  }, [selected?.id, selected?.adminNotes]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return messages.filter((m) => {
+      if (filter !== 'all' && m.status !== filter) return false;
+      if (!q) return true;
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        m.subject.toLowerCase().includes(q) ||
+        m.message.toLowerCase().includes(q) ||
+        (m.phone?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [messages, filter, search]);
+
+  const patchStatus = async (
+    id: string,
+    status: ContactMessageStatus,
+    adminNotes?: string
+  ) => {
     try {
-      const res = await adminFetch(`/api/messages/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      setMessages((prev) => prev.map((m) => (m.id === id ? data.message : m)));
-      bumpAlerts();
-      return true;
+      try {
+        const res = await adminFetch(`/api/messages/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status,
+            ...(adminNotes !== undefined ? { adminNotes } : {}),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+          );
+        }
+        setMessages((prev) =>
+          prev.map((m) => (m.id === id ? (data.message as ContactMessage) : m))
+        );
+        bumpAlerts();
+        return true;
+      } catch {
+        const updated = await updateContactMessageClient(id, {
+          status,
+          ...(adminNotes !== undefined ? { adminNotes } : {}),
+        });
+        setMessages((prev) => prev.map((m) => (m.id === id ? updated : m)));
+        bumpAlerts();
+        return true;
+      }
     } catch {
       toast.error('Could not update message');
       return false;
+    }
+  };
+
+  const saveNotes = async () => {
+    if (!selected) return;
+    setSavingNotes(true);
+    try {
+      try {
+        const res = await adminFetch(`/api/messages/${selected.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ adminNotes: notes }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+          );
+        }
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === selected.id ? (data.message as ContactMessage) : m
+          )
+        );
+      } catch {
+        const updated = await updateContactMessageClient(selected.id, {
+          adminNotes: notes,
+        });
+        setMessages((prev) =>
+          prev.map((m) => (m.id === selected.id ? updated : m))
+        );
+      }
+      toast.success('Notes saved');
+    } catch {
+      toast.error('Could not save notes');
+    } finally {
+      setSavingNotes(false);
     }
   };
 
@@ -107,7 +201,10 @@ export default function MessagesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Messages</h1>
-          <p className="mt-1 text-slate-500">Contact form inbox from the website</p>
+          <p className="mt-1 text-slate-500">
+            Contact form inbox from the website
+            {source === 'firestore' ? ' · synced via Firestore' : ''}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -131,8 +228,19 @@ export default function MessagesPage() {
         </div>
       </div>
 
+      <div className="relative max-w-md">
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search messages..."
+          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        />
+      </div>
+
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1">
-        {(['all', 'new', 'read', 'archived'] as const).map((key) => (
+        {(['all', 'new', 'read', 'replied', 'archived'] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -215,6 +323,18 @@ export default function MessagesPage() {
                 >
                   Reply
                 </a>
+                {selected.status !== 'replied' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await patchStatus(selected.id, 'replied', notes);
+                      if (ok) toast.success('Marked as replied');
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    Mark replied
+                  </button>
+                )}
                 {selected.status !== 'archived' && (
                   <button
                     type="button"
@@ -235,6 +355,27 @@ export default function MessagesPage() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
                 {selected.message}
               </p>
+
+              <div className="border-t border-slate-100 pt-4">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Admin notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Internal notes…"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => void saveNotes()}
+                  disabled={savingNotes}
+                  className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {savingNotes ? 'Saving…' : 'Save notes'}
+                </button>
+              </div>
             </div>
           )}
         </Panel>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Search, ShoppingBag, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, ChevronDown, Eye } from 'lucide-react';
 import { getOrders, updateOrderStatus } from '@/lib/firestore';
 import { formatUgx, formatDate } from '@/lib/currency';
 import type { Order, OrderStatus } from '@/lib/types';
@@ -146,6 +147,14 @@ export default function OrdersPage() {
                     {order.paymentStatus}
                   </span>
                 )}
+
+                <Link
+                  to={`/orders/${order.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Eye size={14} />
+                  View
+                </Link>
 
                 <div className="relative ml-auto">
                   <select

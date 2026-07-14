@@ -12,6 +12,7 @@ export type SalePaymentMethod =
   | 'credit';
 
 export type SaleStatus = 'completed' | 'refunded' | 'cancelled';
+export type StaffRole = 'admin' | 'manager' | 'sales' | 'inventory';
 export type StockMovementType =
   | 'sale'
   | 'return'
@@ -78,6 +79,10 @@ export interface Sale {
   paymentMethod: SalePaymentMethod;
   amountTendered?: number;
   changeGiven?: number;
+  paymentReference?: string;
+  customerId?: string;
+  customerName?: string;
+  cashierId?: string;
   cashierEmail: string;
   status: SaleStatus;
   createdAt: Timestamp;
@@ -90,6 +95,8 @@ export interface StockMovement {
   type: StockMovementType;
   quantityChange: number;
   resultingStock: number;
+  referenceType?: 'sale' | 'order' | 'adjustment' | 'return' | 'field_pick';
+  referenceId?: string;
   reason?: string;
   performedBy: string;
   createdAt: Timestamp;
@@ -100,20 +107,98 @@ export interface FieldAgent {
   name: string;
   phone: string;
   email?: string;
+  notes?: string;
   active: boolean;
   totalPicks: number;
   totalRevenue: number;
+  totalUnitsMissing: number;
   createdAt: Timestamp;
+  createdBy?: string;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  notes?: string;
+  totalSpent: number;
+  outstandingBalance: number;
+  loyaltyPoints: number;
+  createdAt: Timestamp;
+}
+
+export interface FieldPickItem {
+  productId: string;
+  productName: string;
+  barcode: string;
+  quantityPicked: number;
+  unitPrice: number;
+  costPrice: number;
+}
+
+export interface FieldPickReportItem {
+  productId: string;
+  productName: string;
+  quantityPicked: number;
+  quantitySold: number;
+  quantityReturned: number;
+  quantityMissing: number;
+  unitPrice: number;
+  lineRevenue: number;
+}
+
+export interface FieldPickReport {
+  items: FieldPickReportItem[];
+  totalSold: number;
+  totalReturned: number;
+  totalMissing: number;
+  totalRevenue: number;
+  paymentMethod: SalePaymentMethod;
+  amountCollected: number;
+  notes?: string;
+  saleId?: string;
 }
 
 export interface FieldPick {
   id: string;
   agentId: string;
   agentName: string;
+  items: FieldPickItem[];
   status: 'active' | 'closed';
-  totalItems: number;
-  totalValue: number;
+  pickedAt: Timestamp;
+  pickedBy: string;
+  closedAt?: Timestamp;
+  closedBy?: string;
+  report?: FieldPickReport;
+  /** Legacy mirrored fields */
+  totalItems?: number;
+  totalValue?: number;
+  createdAt?: Timestamp;
+}
+
+export interface Staff {
+  id: string;
+  email: string;
+  displayName: string;
+  role: StaffRole;
+  isSuperAdmin?: boolean;
+  active: boolean;
   createdAt: Timestamp;
+}
+
+export interface Permissions {
+  applyDiscount: boolean;
+  maxDiscountPercent: number;
+  processRefunds: boolean;
+  adjustStock: boolean;
+  changePrices: boolean;
+  viewReports: boolean;
+  manageCustomers: boolean;
+  manageStaff: boolean;
+  manageFieldSales: boolean;
+  accessPos: boolean;
+  viewMessages: boolean;
 }
 
 export interface ReportSummary {

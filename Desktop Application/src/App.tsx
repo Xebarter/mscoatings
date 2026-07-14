@@ -7,25 +7,31 @@ import { bindOfflineSync } from '@/lib/offline/sync';
 import { warmOfflineCache } from '@/lib/firestore';
 import Layout from '@/components/Layout';
 import LoginPage from '@/pages/Login';
+import PendingApprovalPage from '@/pages/PendingApproval';
 import DashboardPage from '@/pages/Dashboard';
 import POSPage from '@/pages/POS';
 import ProductsPage from '@/pages/Products';
+import ProductEditPage from '@/pages/ProductEdit';
 import InventoryPage from '@/pages/Inventory';
 import OrdersPage from '@/pages/Orders';
+import OrderDetailPage from '@/pages/OrderDetail';
+import SaleDetailPage from '@/pages/SaleDetail';
 import FieldSalesPage from '@/pages/FieldSales';
+import FieldPickDetailPage from '@/pages/FieldPickDetail';
+import FieldAgentDetailPage from '@/pages/FieldAgentDetail';
 import ReportsPage from '@/pages/Reports';
 import MessagesPage from '@/pages/Messages';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, hasAccess, accessStatus, loading } = useAuth();
   const online = useOnline();
 
   useEffect(() => {
-    if (user && isAdmin && online) {
+    if (user && hasAccess && online) {
       void warmOfflineCache();
     }
-  }, [user, isAdmin, online]);
+  }, [user, hasAccess, online]);
 
   if (loading) {
     return (
@@ -35,7 +41,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (accessStatus === 'pending') {
+    return <Navigate to="/pending" replace />;
+  }
+
+  if (!hasAccess) {
     return <Navigate to="/login" replace />;
   }
 
@@ -61,6 +75,7 @@ export default function App() {
       />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/pending" element={<PendingApprovalPage />} />
         <Route
           element={
             <ProtectedRoute>
@@ -71,10 +86,16 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="pos" element={<POSPage />} />
           <Route path="products" element={<ProductsPage />} />
+          <Route path="products/new" element={<ProductEditPage />} />
+          <Route path="products/:id" element={<ProductEditPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="sales/:id" element={<SaleDetailPage />} />
           <Route path="messages" element={<MessagesPage />} />
           <Route path="field-sales" element={<FieldSalesPage />} />
+          <Route path="field-sales/picks/:id" element={<FieldPickDetailPage />} />
+          <Route path="field-sales/agents/:id" element={<FieldAgentDetailPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

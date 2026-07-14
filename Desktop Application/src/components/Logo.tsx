@@ -1,43 +1,55 @@
-import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import { BRAND_ASSETS, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
   subtitle?: string;
+  textVariant?: 'light' | 'dark';
   className?: string;
 }
 
 const sizeMap = {
-  sm: { icon: 'h-8 w-8', title: 'text-base', subtitle: 'text-xs' },
-  md: { icon: 'h-10 w-10', title: 'text-lg', subtitle: 'text-xs' },
-  lg: { icon: 'h-14 w-14', title: 'text-xl', subtitle: 'text-sm' },
-};
+  sm: 32,
+  md: 40,
+  lg: 64,
+} as const;
 
 export default function Logo({
   size = 'md',
   showText = true,
   subtitle,
+  textVariant = 'light',
   className,
 }: LogoProps) {
-  const s = sizeMap[size];
+  const dimension = sizeMap[size];
 
   return (
     <div className={cn('flex items-center gap-3', className)}>
-      <div
-        className={cn(
-          'flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#0077c8] via-[#19b5fe] to-[#e53935] shadow-lg shadow-blue-500/20',
-          s.icon
-        )}
-      >
-        <span className="text-sm font-extrabold text-white">MS</span>
-      </div>
+      <img
+        src={BRAND_ASSETS.logo}
+        alt={BRAND_NAME}
+        width={dimension}
+        height={dimension}
+        className="rounded-xl object-contain"
+      />
       {showText && (
-        <div className="min-w-0">
-          <p className={cn('font-bold tracking-tight text-white', s.title)}>
+        <div className="min-w-0 text-left">
+          <p
+            className={cn(
+              'font-bold tracking-tight',
+              size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-base' : 'text-lg',
+              textVariant === 'light' ? 'text-white' : 'text-slate-900'
+            )}
+          >
             {BRAND_NAME}
           </p>
-          <p className={cn('truncate text-slate-400', s.subtitle)}>
+          <p
+            className={cn(
+              'truncate text-xs',
+              textVariant === 'light' ? 'text-slate-400' : 'text-slate-500'
+            )}
+          >
             {subtitle ?? BRAND_TAGLINE}
           </p>
         </div>

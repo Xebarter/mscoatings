@@ -6,8 +6,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Keep in sync with NEXT_PUBLIC_ADMIN_EMAILS in .env
-    function isAdmin() {
+    // Keep env emails in sync with NEXT_PUBLIC_ADMIN_EMAILS — plus promoted Super Admins in staff
+    function isBootstrapAdmin() {
       return isSignedIn()
         && request.auth.token.email != null
         && request.auth.token.email.lower() in [
@@ -16,18 +16,42 @@ service cloud.firestore {
         ];
     }
 
-    function staffDocId(email) {
-      return email.lower().replace('@', '_at_').replace('.', '_dot_');
+    function staffDocPath() {
+      return /databases/$(database)/documents/staff/$(staffDocId(request.auth.token.email));
     }
 
-    function isStaff() {
+    function isPromotedSuperAdmin() {
       return isSignedIn()
         && request.auth.token.email != null
-        && exists(/databases/$(database)/documents/staff/$(staffDocId(request.auth.token.email)));
+        && exists(staffDocPath())
+        && get(staffDocPath()).data.active == true
+        && get(staffDocPath()).data.isSuperAdmin == true;
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || isPromotedSuperAdmin();
+    }
+
+    function staffDocId(email) {
+      // Escape '.' — in rules, replace() uses RE2 regex (. = any character)
+      return email.lower().replace('@', '_at_').replace('\\.', '_dot_');
+    }
+
+    function isActiveStaff() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && exists(staffDocPath())
+        && get(staffDocPath()).data.active == true;
     }
 
     function hasStaffAccess() {
-      return isAdmin() || isStaff();
+      return isAdmin() || isActiveStaff();
+    }
+
+    function isOwnStaffDoc(staffId) {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && staffId == staffDocId(request.auth.token.email);
     }
 
     function onlyStockChanged() {
@@ -183,8 +207,29 @@ service cloud.firestore {
     }
 
     match /staff/{staffId} {
-      allow read: if hasStaffAccess();
-      allow write: if false;
+      // Own doc by ID (including missing docs) so desktop can check + create pending records
+      allow get: if isAdmin() || isOwnStaffDoc(staffId);
+      allow list: if isAdmin() || isActiveStaff();
+
+      // Desktop self-registration: signed-in users may create their own pending record only
+      allow create: if isOwnStaffDoc(staffId)
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.active == false
+        && request.resource.data.isSuperAdmin == false
+        && request.resource.data.role == 'sales'
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.keys().hasOnly([
+          'email',
+          'displayName',
+          'role',
+          'isSuperAdmin',
+          'active',
+          'createdAt'
+        ])
+        && request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if false;
     }
 
     match /stockMovements/{movementId} {
@@ -222,6 +267,12 @@ service cloud.firestore {
       allow create: if false;
       allow update: if hasStaffAccess();
       allow delete: if isAdmin();
+    }
+
+    // Immutable staff activity audit trail — written only via Admin SDK.
+    match /staffActivityLogs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
   }
 }

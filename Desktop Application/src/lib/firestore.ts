@@ -5,7 +5,10 @@ import {
   getDocsFromCache,
   getDoc,
   getDocFromCache,
+  addDoc,
   updateDoc,
+  deleteDoc,
+  Timestamp,
   query,
   where,
   orderBy,
@@ -19,7 +22,8 @@ import { ensureFirestoreAuthReady } from './admin-auth';
 import { db } from './firebase';
 import { isOnline } from './offline/connectivity';
 import { localGet, localSet, type SnapshotKey } from './offline/local-store';
-import type { Product, Order, Sale, StockMovement, FieldAgent, FieldPick } from './types';
+import { prefetchProductImages } from './offline/product-images';
+import type { Product, Order, Sale, StockMovement, FieldAgent, FieldPick, Staff, Customer } from './types';
 
 export const productsCollection = collection(db, 'products');
 export const ordersCollection = collection(db, 'orders');
@@ -27,6 +31,8 @@ export const salesCollection = collection(db, 'sales');
 export const stockMovementsCollection = collection(db, 'stockMovements');
 export const fieldAgentsCollection = collection(db, 'fieldAgents');
 export const fieldPicksCollection = collection(db, 'fieldPicks');
+export const staffCollection = collection(db, 'staff');
+export const customersCollection = collection(db, 'customers');
 
 function toFirestoreError(error: unknown): Error {
   if (error instanceof FirebaseError) {
@@ -147,7 +153,22 @@ function reviveAgents(items: FieldAgent[]): FieldAgent[] {
 function revivePicks(items: FieldPick[]): FieldPick[] {
   return items.map((p) => ({
     ...p,
-    createdAt: reviveTimestamp(p.createdAt) as FieldPick['createdAt'],
+    items: p.items ?? [],
+    pickedBy: p.pickedBy ?? '',
+    createdAt: p.createdAt
+      ? (reviveTimestamp(p.createdAt) as FieldPick['createdAt'])
+      : undefined,
+    pickedAt: reviveTimestamp(p.pickedAt) as FieldPick['pickedAt'],
+    closedAt: p.closedAt
+      ? (reviveTimestamp(p.closedAt) as FieldPick['closedAt'])
+      : undefined,
+  }));
+}
+
+function reviveCustomers(items: Customer[]): Customer[] {
+  return items.map((c) => ({
+    ...c,
+    createdAt: reviveTimestamp(c.createdAt) as Customer['createdAt'],
   }));
 }
 
@@ -157,7 +178,11 @@ export async function getProducts(): Promise<Product[]> {
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Product);
   }, serializeProducts);
 
-  return reviveProducts(items);
+  const products = reviveProducts(items);
+  if (isOnline()) {
+    void prefetchProductImages(products);
+  }
+  return products;
 }
 
 export async function getProductByBarcode(barcode: string): Promise<Product | null> {
@@ -197,6 +222,97 @@ export async function getProductById(productId: string): Promise<Product | null>
   return products.find((p) => p.id === productId) ?? null;
 }
 
+async function patchLocalProducts(
+  mutator: (items: Product[]) => Product[]
+): Promise<void> {
+  const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
+  if (!cached?.items) return;
+  await localSet('products', {
+    items: mutator(cached.items),
+    savedAt: Date.now(),
+  });
+}
+
+export async function addProduct(
+  productData: Omit<Product, 'id' | 'createdAt'>
+): Promise<string> {
+  try {
+    await ensureAccess();
+    const createdAt = Timestamp.now();
+    const payload = {
+      ...productData,
+      reorderLevel: productData.reorderLevel ?? 5,
+      costPrice: productData.costPrice ?? 0,
+      createdAt,
+    };
+    const docRef = await addDoc(productsCollection, payload);
+    const product: Product = { id: docRef.id, ...payload };
+    await patchLocalProducts((items) => [...items, product]);
+
+    const { logDesktopActivity } = await import('./staff-activity');
+    logDesktopActivity({
+      action: 'product.create',
+      summary: `Created product ${productData.name}`,
+      resourceType: 'product',
+      resourceId: docRef.id,
+      metrics: {
+        price: productData.price,
+        stock: productData.stock,
+        category: productData.category,
+      },
+    });
+    return docRef.id;
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+export async function updateProduct(
+  productId: string,
+  updates: Partial<Omit<Product, 'id' | 'createdAt'>>
+): Promise<void> {
+  try {
+    await ensureAccess();
+    await updateDoc(doc(productsCollection, productId), updates);
+    await patchLocalProducts((items) =>
+      items.map((p) => (p.id === productId ? { ...p, ...updates } : p))
+    );
+
+    const { logDesktopActivity } = await import('./staff-activity');
+    logDesktopActivity({
+      action: 'product.update',
+      summary: `Updated product ${updates.name ?? productId}`,
+      resourceType: 'product',
+      resourceId: productId,
+      metrics: {
+        price: updates.price ?? null,
+        stock: updates.stock ?? null,
+        category: updates.category ?? null,
+      },
+    });
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+export async function deleteProduct(productId: string): Promise<void> {
+  try {
+    await ensureAccess();
+    await deleteDoc(doc(productsCollection, productId));
+    await patchLocalProducts((items) => items.filter((p) => p.id !== productId));
+
+    const { logDesktopActivity } = await import('./staff-activity');
+    logDesktopActivity({
+      action: 'product.delete',
+      summary: `Deleted product ${productId}`,
+      resourceType: 'product',
+      resourceId: productId,
+    });
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
 export async function getOrders(): Promise<Order[]> {
   await ensureAccess();
   const items = await withLocalMirror('orders', async () => {
@@ -206,6 +322,19 @@ export async function getOrders(): Promise<Order[]> {
       .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
   });
   return reviveOrders(items);
+}
+
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  try {
+    await ensureAccess();
+    const ref = doc(ordersCollection, orderId);
+    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    if (snap.exists()) return { id: snap.id, ...snap.data() } as Order;
+  } catch {
+    /* fall through */
+  }
+  const orders = await getOrders();
+  return orders.find((o) => o.id === orderId) ?? null;
 }
 
 export async function updateOrderStatus(orderId: string, status: Order['status']) {
@@ -219,6 +348,14 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
         savedAt: Date.now(),
       });
     }
+    const { logDesktopActivity } = await import('./staff-activity');
+    logDesktopActivity({
+      action: 'order.status_change',
+      summary: `Order status → ${status}`,
+      resourceType: 'order',
+      resourceId: orderId,
+      metrics: { status },
+    });
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -259,9 +396,22 @@ export async function getFieldPicks(): Promise<FieldPick[]> {
     const snapshot = await getDocsHybrid(fieldPicksCollection);
     return snapshot.docs
       .map((d) => ({ id: d.id, ...d.data() }) as FieldPick)
-      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      .sort((a, b) => {
+        const aMs = (a.pickedAt ?? a.createdAt)?.toMillis?.() ?? 0;
+        const bMs = (b.pickedAt ?? b.createdAt)?.toMillis?.() ?? 0;
+        return bMs - aMs;
+      });
   });
   return revivePicks(items);
+}
+
+export async function getCustomers(): Promise<Customer[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('customers', async () => {
+    const snapshot = await getDocsHybrid(customersCollection);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Customer);
+  });
+  return reviveCustomers(items);
 }
 
 export async function getSaleById(saleId: string): Promise<Sale | null> {
@@ -279,17 +429,52 @@ export async function getSaleById(saleId: string): Promise<Sale | null> {
   }
 }
 
+export async function getStaffByEmail(email: string): Promise<Staff | null> {
+  try {
+    const normalized = email.trim().toLowerCase();
+    const id = staffDocId(normalized);
+    try {
+      const snap = isOnline()
+        ? await getDoc(doc(staffCollection, id))
+        : await getDocFromCache(doc(staffCollection, id));
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as Staff;
+      }
+      return null;
+    } catch {
+      /* fall through to query */
+    }
+
+    const q = query(staffCollection, where('email', '==', normalized));
+    const snapshot = await getDocsHybrid(q);
+    if (snapshot.empty) return null;
+    const d = snapshot.docs[0];
+    return { id: d.id, ...d.data() } as Staff;
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+function staffDocId(email: string): string {
+  return email.trim().toLowerCase().replace('@', '_at_').replace(/\./g, '_dot_');
+}
+
 /** Warm all critical collections into Firestore cache + IndexedDB mirror while online. */
 export async function warmOfflineCache(): Promise<void> {
   if (!isOnline()) return;
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     getProducts(),
     getOrders(),
-    listSales(200),
-    getStockMovements(100),
+    listSales(500),
+    getStockMovements(200),
     getFieldAgents(),
     getFieldPicks(),
+    getCustomers(),
   ]);
+  const productsResult = results[0];
+  if (productsResult.status === 'fulfilled') {
+    await prefetchProductImages(productsResult.value);
+  }
   await localSet('meta', { lastSyncedAt: Date.now(), pendingWrites: 0 });
 }
 

@@ -1,6 +1,11 @@
 export const BRAND_NAME = 'MS Coatings';
 export const BRAND_TAGLINE = 'Professional Finishing Systems';
 
+export const BRAND_ASSETS = {
+  logo: '/favicon-96x96.png',
+  logoLarge: '/web-app-manifest-512x512.png',
+} as const;
+
 export const BRAND_COLORS = {
   navy: '#0f172a',
   charcoal: '#1f2937',

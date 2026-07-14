@@ -20,6 +20,7 @@ import type {
   SalePaymentMethod,
 } from '@/lib/erp-types';
 import { toFirestoreError } from '@/lib/firestore';
+import { logClientActivity } from '@/lib/staff-activity-client';
 
 const fieldAgentsCollection = collection(db, 'fieldAgents');
 const fieldPicksCollection = collection(db, 'fieldPicks');
@@ -97,6 +98,14 @@ export async function createFieldAgentClient(input: {
       createdAt: Timestamp.now(),
       createdBy,
     });
+    logClientActivity({
+      action: 'field_agent.create',
+      summary: `Created field agent ${input.name.trim()}`,
+      resourceType: 'fieldAgent',
+      resourceId: docRef.id,
+      channel: 'web_admin',
+      metrics: { phone: input.phone.trim() },
+    });
     return docRef.id;
   } catch (error) {
     throw toFirestoreError(error);
@@ -122,6 +131,17 @@ export async function updateFieldAgentClient(
     if (updates.notes !== undefined) payload.notes = updates.notes?.trim() || null;
     if (updates.active !== undefined) payload.active = updates.active;
     await updateDoc(doc(db, 'fieldAgents', agentId), payload);
+    logClientActivity({
+      action: 'field_agent.update',
+      summary: `Updated field agent ${updates.name ?? agentId}`,
+      resourceType: 'fieldAgent',
+      resourceId: agentId,
+      channel: 'web_admin',
+      metrics: {
+        active: updates.active ?? null,
+        name: updates.name ?? null,
+      },
+    });
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -191,7 +211,7 @@ export async function createFieldPickClient(
   }
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const pickId = await runTransaction(db, async (transaction) => {
       const productRefs = input.items.map((item) =>
         doc(db, 'products', item.productId)
       );
@@ -274,6 +294,22 @@ export async function createFieldPickClient(
 
       return pickRef.id;
     });
+
+    logClientActivity({
+      action: 'field_pick.create',
+      summary: `Field pick issued to ${input.agentName} · ${input.items.length} line(s)`,
+      resourceType: 'fieldPick',
+      resourceId: pickId,
+      channel: 'web_admin',
+      metrics: {
+        agentId: input.agentId,
+        agentName: input.agentName,
+        lineCount: input.items.length,
+        units: input.items.reduce((sum, i) => sum + i.quantity, 0),
+      },
+    });
+
+    return pickId;
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -306,7 +342,7 @@ export async function submitFieldPickReportClient(
   }
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
       const pickRef = doc(db, 'fieldPicks', input.pickId);
       const pickSnap = await transaction.get(pickRef);
 
@@ -519,6 +555,24 @@ export async function submitFieldPickReportClient(
 
       return { saleId, report };
     });
+
+    logClientActivity({
+      action: 'field_pick.submit_report',
+      summary: `Field pick closed · sold ${result.report.totalSold} · revenue ${result.report.totalRevenue}`,
+      resourceType: 'fieldPick',
+      resourceId: input.pickId,
+      channel: 'web_admin',
+      metrics: {
+        totalSold: result.report.totalSold,
+        totalReturned: result.report.totalReturned,
+        totalMissing: result.report.totalMissing,
+        totalRevenue: result.report.totalRevenue,
+        paymentMethod: result.report.paymentMethod,
+        saleId: result.saleId,
+      },
+    });
+
+    return result;
   } catch (error) {
     throw toFirestoreError(error);
   }

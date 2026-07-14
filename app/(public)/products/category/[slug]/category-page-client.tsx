@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ProductCard from '@/components/product-card';
 import Breadcrumbs from '@/components/breadcrumbs';
 import { fetchLiveCatalogProducts } from '@/lib/catalog-products';
+import { prefetchProductImages } from '@/lib/product-image-cache';
 import {
   getMarketingCategoryLabel,
   productMatchesMarketingCategory,
@@ -27,9 +28,13 @@ export default function CategoryPageClient({
   useEffect(() => {
     let cancelled = false;
 
+    void prefetchProductImages(initialProducts);
+
     fetchLiveCatalogProducts()
       .then((liveProducts) => {
         if (cancelled) return;
+
+        void prefetchProductImages(liveProducts);
 
         const dbCategory = slugToCategory(
           slug,
@@ -56,7 +61,7 @@ export default function CategoryPageClient({
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [initialProducts, slug]);
 
   return (
     <div className="min-h-screen bg-white">
