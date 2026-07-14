@@ -3,7 +3,6 @@ import { formatUgx } from '@/lib/currency';
 import { DATE_PRESET_LABELS, type DatePreset } from '@/lib/reports/date-range';
 import type { EnterpriseReport, KpiMetric } from '@/lib/reports/types';
 import { BUSINESS_INFO, BUSINESS_PHONES } from '@/lib/business';
-import { API_BASE } from '@/lib/admin-api';
 
 function escapeHtml(value: string): string {
   return value
@@ -665,9 +664,7 @@ export function buildEnterpriseReportPrintDocument(
   options?: { logoUrl?: string }
 ): string {
   const { meta, kpis } = report;
-  const logoUrl =
-    options?.logoUrl ??
-    `${API_BASE}${BRAND_ASSETS.logoLarge}`;
+  const logoUrl = options?.logoUrl ?? BRAND_ASSETS.logoLarge;
 
   const presetLabel =
     DATE_PRESET_LABELS[meta.preset as DatePreset] ?? meta.preset.replace(/_/g, ' ');

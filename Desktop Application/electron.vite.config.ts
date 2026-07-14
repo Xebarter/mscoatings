@@ -26,6 +26,7 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
+    base: './',
     publicDir: resolve(__dirname, 'public'),
     build: {
       rollupOptions: {
@@ -36,7 +37,7 @@ export default defineConfig({
     },
     resolve: {
       alias: {
-        '@': resolve('src'),
+        '@': resolve(__dirname, 'src'),
       },
     },
     plugins: [react(), tailwindcss()],

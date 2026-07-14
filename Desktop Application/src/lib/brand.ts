@@ -1,9 +1,12 @@
+import logoUrl from '@/assets/favicon-96x96.png';
+import logoLargeUrl from '@/assets/web-app-manifest-512x512.png';
+
 export const BRAND_NAME = 'MS Coatings';
 export const BRAND_TAGLINE = 'Professional Finishing Systems';
 
 export const BRAND_ASSETS = {
-  logo: '/favicon-96x96.png',
-  logoLarge: '/web-app-manifest-512x512.png',
+  logo: logoUrl,
+  logoLarge: logoLargeUrl,
 } as const;
 
 export const BRAND_COLORS = {
