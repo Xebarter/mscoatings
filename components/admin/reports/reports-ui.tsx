@@ -21,7 +21,7 @@ export const reportsGlass = {
   panelStatic:
     'relative rounded-2xl border border-white/60 bg-white/65 shadow-[0_4px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[rgba(12,20,36,0.72)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]',
   filter:
-    'sticky top-16 z-30 -mx-4 border-b border-white/40 bg-white/70 px-4 py-3 shadow-[0_8px_32px_rgba(15,23,42,0.04)] backdrop-blur-2xl dark:border-cyan/10 dark:bg-[rgba(6,10,20,0.85)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:py-4 lg:top-0 sm:-mx-6 sm:px-6',
+    '-mx-4 border-b border-white/40 bg-white/70 px-4 py-3 shadow-[0_8px_32px_rgba(15,23,42,0.04)] backdrop-blur-2xl dark:border-cyan/10 dark:bg-[rgba(6,10,20,0.85)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] sm:py-4 sm:-mx-6 sm:px-6',
   input:
     'rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-premium-blue/40 focus:ring-2 focus:ring-premium-blue/15 dark:border-white/10 dark:bg-[rgba(8,14,28,0.85)] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan/40 dark:focus:ring-cyan/20 dark:focus:shadow-[0_0_0_3px_rgba(25,181,254,0.08)]',
   btnGhost:
