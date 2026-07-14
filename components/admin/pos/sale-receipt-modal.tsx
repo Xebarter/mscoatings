@@ -24,6 +24,8 @@ export default function SaleReceiptModal({
 }: SaleReceiptModalProps) {
   if (!open || !sale) return null;
 
+  const isPending = sale.id.startsWith('pending-');
+
   return (
     <div className="sale-receipt-modal fixed inset-0 z-50 flex items-end justify-center bg-slate-900/70 p-0 sm:items-center sm:p-4 print:bg-white print:p-0">
       <div className="sale-receipt-modal-panel flex max-h-[95vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl print:max-h-none print:max-w-none print:rounded-none print:shadow-none">
@@ -35,9 +37,13 @@ export default function SaleReceiptModal({
                 <CheckCircle2 size={22} className="text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-emerald-900">Sale completed</h3>
+                <h3 className="text-lg font-bold text-emerald-900">
+                  {isPending ? 'Saving sale…' : 'Sale completed'}
+                </h3>
                 <p className="text-sm text-emerald-700">
-                  {sale.receiptNumber} · {formatUgx(sale.totalAmount)}
+                  {isPending
+                    ? formatUgx(sale.totalAmount)
+                    : `${sale.receiptNumber} · ${formatUgx(sale.totalAmount)}`}
                 </p>
               </div>
             </div>
@@ -65,18 +71,21 @@ export default function SaleReceiptModal({
             <button
               type="button"
               onClick={() => printSaleReceipt(sale)}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800"
+              disabled={isPending}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-50"
             >
               <Printer size={18} />
               Print receipt
             </button>
-            <Link
-              href={`/admin/sales/${sale.id}`}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-            >
-              <ExternalLink size={18} />
-              View details
-            </Link>
+            {!isPending && (
+              <Link
+                href={`/admin/sales/${sale.id}`}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                <ExternalLink size={18} />
+                View details
+              </Link>
+            )}
           </div>
           <button
             type="button"
@@ -86,7 +95,7 @@ export default function SaleReceiptModal({
             <ShoppingCart size={16} />
             New sale
           </button>
-          {onCancelSale && (
+          {onCancelSale && !isPending && (
             <button
               type="button"
               onClick={onCancelSale}

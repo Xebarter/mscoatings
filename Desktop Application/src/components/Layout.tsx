@@ -1,10 +1,13 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   BarChart3,
+  Bell,
+  BellOff,
   ExternalLink,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Package,
@@ -20,20 +23,37 @@ import Logo from '@/components/Logo';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { cn } from '@/lib/utils';
 import { useOnline } from '@/hooks/useOnline';
+import { useAdminAlerts } from '@/hooks/useAdminAlerts';
 
 const navItems = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/pos', label: 'Point of Sale', icon: ScanBarcode },
-  { to: '/products', label: 'Products', icon: Package },
-  { to: '/inventory', label: 'Inventory', icon: Warehouse },
-  { to: '/field-sales', label: 'Field Sales', icon: Truck },
-  { to: '/orders', label: 'Orders', icon: ShoppingBag },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true, badge: null as null | 'orders' | 'messages' },
+  { to: '/pos', label: 'Point of Sale', icon: ScanBarcode, badge: null },
+  { to: '/products', label: 'Products', icon: Package, badge: null },
+  { to: '/inventory', label: 'Inventory', icon: Warehouse, badge: null },
+  { to: '/field-sales', label: 'Field Sales', icon: Truck, badge: null },
+  { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' as const },
+  { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages' as const },
+  { to: '/reports', label: 'Reports', icon: BarChart3, badge: null },
 ];
+
+function AlertBadge({ count, active }: { count: number; active: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={cn(
+        'ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums',
+        active ? 'bg-white text-blue-700' : 'bg-red-500 text-white'
+      )}
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
 
 export default function Layout() {
   const location = useLocation();
   const online = useOnline();
+  const { alerts, muted, toggleMute } = useAdminAlerts(online);
 
   const handleLogout = async () => {
     try {
@@ -65,30 +85,53 @@ export default function Layout() {
             Menu
           </p>
           <div className="flex flex-col gap-1">
-            {navItems.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  )
-                }
-              >
-                <Icon size={18} className="shrink-0" />
-                {label}
-              </NavLink>
-            ))}
+            {navItems.map(({ to, label, icon: Icon, end, badge }) => {
+              const count =
+                badge === 'orders'
+                  ? alerts.pendingOrders
+                  : badge === 'messages'
+                    ? alerts.newMessages
+                    : 0;
+
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon size={18} className="shrink-0" />
+                      <span className="flex-1">{label}</span>
+                      <AlertBadge count={count} active={isActive} />
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
         </nav>
 
         <ConnectionStatus />
 
         <div className="border-t border-slate-800 p-4 space-y-1">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+            title={muted ? 'Unmute alert sounds' : 'Mute alert sounds'}
+          >
+            {muted ? <BellOff size={18} /> : <Bell size={18} />}
+            {muted ? 'Alerts muted' : 'Alert sounds on'}
+          </button>
           <button
             type="button"
             onClick={openStore}
@@ -119,6 +162,43 @@ export default function Layout() {
             className="flex-1 overflow-y-auto"
           >
             <div className="mx-auto max-w-7xl px-6 py-8">
+              {(alerts.pendingOrders > 0 || alerts.newMessages > 0) &&
+                location.pathname === '/' && (
+                  <div className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1 text-sm text-amber-950">
+                      {alerts.pendingOrders > 0 && (
+                        <p className="font-medium">
+                          {alerts.pendingOrders} pending order
+                          {alerts.pendingOrders === 1 ? '' : 's'}
+                        </p>
+                      )}
+                      {alerts.newMessages > 0 && (
+                        <p className="font-medium">
+                          {alerts.newMessages} new message
+                          {alerts.newMessages === 1 ? '' : 's'}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {alerts.pendingOrders > 0 && (
+                        <Link
+                          to="/orders"
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                        >
+                          View orders
+                        </Link>
+                      )}
+                      {alerts.newMessages > 0 && (
+                        <Link
+                          to="/messages"
+                          className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
+                        >
+                          Open inbox
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
               <Outlet />
             </div>
           </motion.div>

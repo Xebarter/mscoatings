@@ -35,7 +35,7 @@ function generateReceiptNumber(): string {
   return `RCP-${datePart}-${timePart}-${random}`;
 }
 
-export async function createSaleClient(input: CreateSaleInput): Promise<string> {
+export async function createSaleClient(input: CreateSaleInput): Promise<Sale> {
   await ensureFirestoreAuthReady();
 
   const user = auth.currentUser;
@@ -130,6 +130,7 @@ export async function createSaleClient(input: CreateSaleInput): Promise<string> 
         input.paymentMethod === 'cash'
           ? Math.max(0, amountTendered - totalAmount)
           : 0;
+      const createdAt = Timestamp.now();
 
       // Phase 3: all writes
       for (const update of stockUpdates) {
@@ -145,12 +146,12 @@ export async function createSaleClient(input: CreateSaleInput): Promise<string> 
           referenceType: 'sale',
           referenceId: receiptNumber,
           performedBy: cashierEmail,
-          createdAt: Timestamp.now(),
+          createdAt,
         });
       }
 
       const saleRef = doc(collection(db, 'sales'));
-      transaction.set(saleRef, {
+      const saleData = {
         receiptNumber,
         items: saleItems,
         subtotal,
@@ -164,9 +165,10 @@ export async function createSaleClient(input: CreateSaleInput): Promise<string> 
         customerName: input.customerName ?? null,
         cashierId,
         cashierEmail,
-        status: 'completed',
-        createdAt: Timestamp.now(),
-      });
+        status: 'completed' as const,
+        createdAt,
+      };
+      transaction.set(saleRef, saleData);
 
       if (customerRef && customerSnap?.exists()) {
         const customer = customerSnap.data();
@@ -184,7 +186,13 @@ export async function createSaleClient(input: CreateSaleInput): Promise<string> 
         transaction.update(customerRef, updates);
       }
 
-      return saleRef.id;
+      return {
+        id: saleRef.id,
+        ...saleData,
+        paymentReference: input.paymentReference,
+        customerId: input.customerId,
+        customerName: input.customerName,
+      } satisfies Sale;
     });
   } catch (error) {
     throw toFirestoreError(error);
@@ -202,7 +210,10 @@ export async function getSaleByIdClient(saleId: string): Promise<Sale | null> {
   }
 }
 
-export async function voidSaleClient(saleId: string): Promise<void> {
+export async function voidSaleClient(
+  saleId: string,
+  knownSale?: Pick<Sale, 'receiptNumber'>
+): Promise<void> {
   await ensureFirestoreAuthReady();
 
   const user = auth.currentUser;
@@ -210,34 +221,42 @@ export async function voidSaleClient(saleId: string): Promise<void> {
     throw new Error('You must be signed in.');
   }
 
-  await user.getIdToken(true);
-
   try {
-    const movementsByReceiptSnap = await getDocs(
-      query(
-        collection(db, 'stockMovements'),
-        where('referenceId', '==', saleId)
-      )
-    );
-    const saleSnapPreview = await getDoc(doc(db, 'sales', saleId));
-    if (!saleSnapPreview.exists()) {
-      throw new Error('Sale not found');
+    let receiptNumber = knownSale?.receiptNumber;
+    if (!receiptNumber) {
+      const saleSnapPreview = await getDoc(doc(db, 'sales', saleId));
+      if (!saleSnapPreview.exists()) {
+        throw new Error('Sale not found');
+      }
+      receiptNumber = (saleSnapPreview.data() as Omit<Sale, 'id'>).receiptNumber;
     }
-    const receiptNumber = (saleSnapPreview.data() as Omit<Sale, 'id'>)
-      .receiptNumber;
-    const movementsByReceiptNumberSnap = await getDocs(
-      query(
-        collection(db, 'stockMovements'),
-        where('referenceId', '==', receiptNumber)
-      )
-    );
 
-    const movementIds = new Set<string>();
-    for (const movementDoc of movementsByReceiptSnap.docs) {
-      movementIds.add(movementDoc.id);
+    // Movements are keyed by receipt number (and historically sometimes by sale id)
+    const movementQueries = [
+      getDocs(
+        query(
+          collection(db, 'stockMovements'),
+          where('referenceId', '==', receiptNumber)
+        )
+      ),
+    ];
+    if (receiptNumber !== saleId) {
+      movementQueries.push(
+        getDocs(
+          query(
+            collection(db, 'stockMovements'),
+            where('referenceId', '==', saleId)
+          )
+        )
+      );
     }
-    for (const movementDoc of movementsByReceiptNumberSnap.docs) {
-      movementIds.add(movementDoc.id);
+
+    const movementSnaps = await Promise.all(movementQueries);
+    const movementIds = new Set<string>();
+    for (const snap of movementSnaps) {
+      for (const movementDoc of snap.docs) {
+        movementIds.add(movementDoc.id);
+      }
     }
     const movementRefs = [...movementIds].map((id) =>
       doc(db, 'stockMovements', id)
@@ -271,7 +290,7 @@ export async function voidSaleClient(saleId: string): Promise<void> {
         ? await transaction.get(customerRef)
         : null;
 
-      const movementSnaps = await Promise.all(
+      const movementDocSnaps = await Promise.all(
         movementRefs.map((ref) => transaction.get(ref))
       );
 
@@ -289,7 +308,7 @@ export async function voidSaleClient(saleId: string): Promise<void> {
         });
       }
 
-      for (const movementSnap of movementSnaps) {
+      for (const movementSnap of movementDocSnaps) {
         if (!movementSnap.exists()) continue;
         transaction.delete(movementSnap.ref);
       }

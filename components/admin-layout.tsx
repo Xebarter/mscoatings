@@ -2,13 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import Logo from '@/components/logo';
 import {
+  AdminAlertsProvider,
+  useAdminAlertsContext,
+} from '@/components/admin-alerts-provider';
+import {
   BarChart3,
+  Bell,
+  BellOff,
   ExternalLink,
   Inbox,
   LayoutDashboard,
@@ -70,6 +76,19 @@ function resolveActiveSection(pathname: string, activeSection?: AdminSection): A
   return 'overview';
 }
 
+function AlertBadge({ count, active }: { count: number; active: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={`ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
+        active ? 'bg-white text-blue-700' : 'bg-red-500 text-white'
+      }`}
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
 function NavLinks({
   current,
   onNavigate,
@@ -77,11 +96,19 @@ function NavLinks({
   current: AdminSection;
   onNavigate?: () => void;
 }) {
+  const { alerts } = useAdminAlertsContext();
+
   return (
     <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = current === item.id;
+        const badge =
+          item.id === 'orders'
+            ? alerts.pendingOrders
+            : item.id === 'messages'
+              ? alerts.newMessages
+              : 0;
 
         return (
           <Link
@@ -96,6 +123,7 @@ function NavLinks({
           >
             <Icon size={18} className="shrink-0" />
             {item.label}
+            <AlertBadge count={badge} active={isActive} />
           </Link>
         );
       })}
@@ -103,7 +131,7 @@ function NavLinks({
   );
 }
 
-export default function AdminLayout({
+function AdminLayoutShell({
   children,
   activeSection,
   title,
@@ -114,6 +142,12 @@ export default function AdminLayout({
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const current = resolveActiveSection(pathname, activeSection);
+  const { alerts, muted, toggleMute, requestBrowserPermission } = useAdminAlertsContext();
+  const totalAlerts = alerts.pendingOrders + alerts.newMessages;
+
+  useEffect(() => {
+    void requestBrowserPermission();
+  }, [requestBrowserPermission]);
 
   const handleLogout = async () => {
     try {
@@ -142,6 +176,15 @@ export default function AdminLayout({
         </div>
 
         <div className="border-t border-slate-800 p-4 space-y-1">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+            title={muted ? 'Unmute alert sounds' : 'Mute alert sounds'}
+          >
+            {muted ? <BellOff size={18} /> : <Bell size={18} />}
+            {muted ? 'Alerts muted' : 'Alert sounds on'}
+          </button>
           <Link
             href="/"
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
@@ -166,10 +209,13 @@ export default function AdminLayout({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+              className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100"
               aria-label="Open menu"
             >
               <Menu size={22} />
+              {totalAlerts > 0 && (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+              )}
             </button>
             <div className="flex items-center gap-2">
               <Logo href={null} size="sm" showText={false} />
@@ -177,14 +223,24 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600"
-            aria-label="Sign out"
-          >
-            <LogOut size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              aria-label={muted ? 'Unmute alerts' : 'Mute alerts'}
+            >
+              {muted ? <BellOff size={20} /> : <Bell size={20} />}
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600"
+              aria-label="Sign out"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -262,5 +318,13 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout(props: AdminLayoutProps) {
+  return (
+    <AdminAlertsProvider>
+      <AdminLayoutShell {...props} />
+    </AdminAlertsProvider>
   );
 }

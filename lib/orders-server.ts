@@ -90,3 +90,13 @@ export async function listPendingPaymentOrders(): Promise<ServerOrder[]> {
     }))
     .filter((order) => Boolean(order.paytotaPurchaseId));
 }
+
+export async function countPendingOrders(): Promise<number> {
+  const db = getAdminFirestore();
+  const snap = await db
+    .collection('orders')
+    .where('status', '==', 'pending')
+    .count()
+    .get();
+  return snap.data().count;
+}

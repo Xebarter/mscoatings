@@ -9,7 +9,7 @@ import CheckoutModal from '@/components/admin/pos/checkout-modal';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { usePermissions } from '@/hooks/use-permissions';
 import SaleReceiptModal from '@/components/admin/pos/sale-receipt-modal';
-import { createSaleClient, getSaleByIdClient, voidSaleClient } from '@/lib/sales-client';
+import { createSaleClient, voidSaleClient } from '@/lib/sales-client';
 import { formatUgx } from '@/lib/currency';
 import {
   getProductByBarcode,
@@ -17,6 +17,8 @@ import {
   type Product,
 } from '@/lib/firestore';
 import type { Sale, SalePaymentMethod } from '@/lib/erp-types';
+import { Timestamp } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 import {
   Camera,
   Minus,
@@ -118,9 +120,10 @@ export default function PosPage() {
   });
 
   const filteredProducts = useMemo(() => {
+    const inStock = products.filter((p) => p.stock > 0);
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
+    if (!q) return inStock;
+    return inStock.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.barcode?.toLowerCase().includes(q) ||
@@ -161,8 +164,21 @@ export default function PosPage() {
     setCart([]);
   };
 
+  const applyStockDelta = (items: Array<{ productId: string; quantity: number }>, direction: 1 | -1) => {
+    setProducts((prev) =>
+      prev.map((product) => {
+        const delta = items.find((item) => item.productId === product.id);
+        if (!delta) return product;
+        return {
+          ...product,
+          stock: Math.max(0, product.stock + direction * delta.quantity),
+        };
+      })
+    );
+  };
+
   const handleCancelCompletedSale = async () => {
-    if (!completedSale) return;
+    if (!completedSale || completedSale.id.startsWith('pending-')) return;
 
     if (
       !confirm(
@@ -172,15 +188,23 @@ export default function PosPage() {
       return;
     }
 
+    const saleToCancel = completedSale;
+    // Instant UI: close receipt immediately
+    setCompletedSale(null);
+    applyStockDelta(saleToCancel.items, 1);
+
     setIsCancellingSale(true);
+    const toastId = toast.loading('Cancelling sale…');
     try {
-      await voidSaleClient(completedSale.id);
-      setCompletedSale(null);
-      toast.success('Sale cancelled');
-      void loadData();
+      await voidSaleClient(saleToCancel.id, saleToCancel);
+      toast.success('Sale cancelled', { id: toastId });
     } catch (error) {
+      // Roll back optimistic cancel
+      setCompletedSale(saleToCancel);
+      applyStockDelta(saleToCancel.items, -1);
       toast.error(
-        error instanceof Error ? error.message : 'Failed to cancel sale'
+        error instanceof Error ? error.message : 'Failed to cancel sale',
+        { id: toastId }
       );
     } finally {
       setIsCancellingSale(false);
@@ -192,12 +216,62 @@ export default function PosPage() {
     amountTendered?: number;
     paymentReference?: string;
   }) => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isProcessing) return;
 
     setIsProcessing(true);
+
+    const cartSnapshot = cart;
+    const user = auth.currentUser;
+    const cashierEmail = user?.email?.toLowerCase() ?? '';
+    const cashierId = user?.uid ?? '';
+
+    const saleItems = cartSnapshot.map((item) => ({
+      productId: item.product.id,
+      name: item.product.name,
+      barcode: item.product.barcode ?? '',
+      quantity: item.quantity,
+      unitPrice: item.product.price,
+      costPrice: item.product.costPrice ?? 0,
+      discount: 0,
+      lineTotal: item.product.price * item.quantity,
+    }));
+    const subtotal = saleItems.reduce((sum, item) => sum + item.lineTotal, 0);
+    const totalAmount = subtotal;
+    const amountTendered = data.amountTendered ?? totalAmount;
+    const changeGiven =
+      data.paymentMethod === 'cash'
+        ? Math.max(0, amountTendered - totalAmount)
+        : 0;
+
+    const optimisticSale: Sale = {
+      id: `pending-${Date.now()}`,
+      receiptNumber: 'Saving…',
+      items: saleItems,
+      subtotal,
+      discountTotal: 0,
+      totalAmount,
+      paymentMethod: data.paymentMethod,
+      amountTendered,
+      changeGiven,
+      paymentReference: data.paymentReference,
+      cashierId,
+      cashierEmail,
+      status: 'completed',
+      createdAt: Timestamp.now(),
+    };
+
+    // Instant UI: clear cart, close checkout, show receipt
+    setCart([]);
+    setCheckoutOpen(false);
+    setCompletedSale(optimisticSale);
+    applyStockDelta(saleItems, -1);
+    setIsProcessing(false);
+
+    const toastId = toast.loading('Saving sale…');
+
     try {
-      const saleId = await createSaleClient({
-        items: cart.map((item) => ({
+      const sale = await createSaleClient({
+        items: cartSnapshot.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
           discount: 0,
@@ -207,21 +281,17 @@ export default function PosPage() {
         amountTendered: data.amountTendered,
         paymentReference: data.paymentReference,
       });
-
-      const sale = await getSaleByIdClient(saleId);
-      if (!sale) {
-        throw new Error('Sale saved but receipt could not be loaded.');
-      }
-
       setCompletedSale(sale);
-      setCart([]);
-      setCheckoutOpen(false);
-      toast.success('Sale completed!');
-      void loadData();
+      toast.success('Sale completed!', { id: toastId });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Sale failed');
-    } finally {
-      setIsProcessing(false);
+      // Roll back optimistic complete
+      setCompletedSale(null);
+      setCart(cartSnapshot);
+      setCheckoutOpen(true);
+      applyStockDelta(saleItems, 1);
+      toast.error(error instanceof Error ? error.message : 'Sale failed', {
+        id: toastId,
+      });
     }
   };
 

@@ -42,6 +42,8 @@ import {
 import { downloadAllProductQrPdf, downloadProductQrPng } from '@/lib/product-qr';
 import { downloadAllBarcodeLabelsPdf } from '@/lib/product-barcode';
 import { adminFetch } from '@/lib/admin-api';
+import AdminAlertsBanner from '@/components/admin-alerts-banner';
+import { useOptionalAdminAlerts } from '@/components/admin-alerts-provider';
 
 const validTabs: AdminSection[] = ['overview', 'products', 'orders', 'analytics'];
 
@@ -101,11 +103,13 @@ function getStatusStyles(status: Order['status']) {
 
 function DashboardTabNav({ activeTab }: { activeTab: AdminSection }) {
   const router = useRouter();
+  const alerts = useOptionalAdminAlerts()?.alerts;
 
   return (
     <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
       {dashboardTabs.map(({ id, label, icon: Icon }) => {
         const isActive = activeTab === id;
+        const badge = id === 'orders' ? alerts?.pendingOrders ?? 0 : 0;
         return (
           <button
             key={id}
@@ -119,6 +123,15 @@ function DashboardTabNav({ activeTab }: { activeTab: AdminSection }) {
           >
             <Icon size={16} />
             {label}
+            {badge > 0 && (
+              <span
+                className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
+                  isActive ? 'bg-white text-blue-700' : 'bg-red-500 text-white'
+                }`}
+              >
+                {badge > 99 ? '99+' : badge}
+              </span>
+            )}
           </button>
         );
       })}
@@ -454,6 +467,8 @@ function DashboardContent() {
         <div className="space-y-6">
           {activeTab === 'overview' && (
             <>
+              <AdminAlertsBanner />
+
               <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 p-6 text-white shadow-lg sm:p-8">
                 <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>

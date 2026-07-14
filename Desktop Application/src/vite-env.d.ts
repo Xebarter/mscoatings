@@ -17,6 +17,7 @@ interface ImportMeta {
 
 interface ElectronAPI {
   getVersion: () => Promise<string>;
+  showNotification?: (payload: { title: string; body: string }) => Promise<boolean>;
   platform: NodeJS.Platform;
 }
 

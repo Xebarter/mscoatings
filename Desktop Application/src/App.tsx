@@ -14,6 +14,7 @@ import InventoryPage from '@/pages/Inventory';
 import OrdersPage from '@/pages/Orders';
 import FieldSalesPage from '@/pages/FieldSales';
 import ReportsPage from '@/pages/Reports';
+import MessagesPage from '@/pages/Messages';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="messages" element={<MessagesPage />} />
           <Route path="field-sales" element={<FieldSalesPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>

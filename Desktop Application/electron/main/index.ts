@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Notification } from 'electron';
 import { join } from 'path';
 
 const isDev = !app.isPackaged;
@@ -49,6 +49,20 @@ app.whenReady().then(() => {
   app.setAppUserModelId('com.mscoatings.admin');
 
   ipcMain.handle('app:getVersion', () => app.getVersion());
+
+  ipcMain.handle(
+    'app:showNotification',
+    (_event, payload: { title: string; body: string }) => {
+      if (!Notification.isSupported()) return false;
+      const notification = new Notification({
+        title: payload.title,
+        body: payload.body,
+        silent: false,
+      });
+      notification.show();
+      return true;
+    }
+  );
 
   createWindow();
 

@@ -69,7 +69,7 @@ export default function SaleDetailPage() {
 
     setIsUpdating(true);
     try {
-      await voidSaleClient(saleId);
+      await voidSaleClient(saleId, sale ?? undefined);
       toast.success('Sale cancelled');
       router.push('/admin/pos');
     } catch (error) {
