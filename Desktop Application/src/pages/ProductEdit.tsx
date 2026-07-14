@@ -116,6 +116,13 @@ export default function ProductEditPage() {
   };
 
   const startImageUpload = async (file: File) => {
+    if (!online) {
+      toast('Image kept locally — will upload when you reconnect', {
+        icon: '📡',
+        duration: 3500,
+      });
+      return;
+    }
     setIsUploadingImage(true);
     setUploadProgress(0);
     setUploadedImageUrl('');
@@ -150,11 +157,12 @@ export default function ProductEditPage() {
 
   const handleGenerateBarcode = async () => {
     if (!online) {
-      toast.error('Connect to the internet to generate a barcode');
+      const local = `MSC${Date.now().toString().slice(-10)}${Math.floor(10 + Math.random() * 89)}`;
+      setFormData((prev) => ({ ...prev, barcode: local }));
+      toast.success('Offline barcode generated');
       return;
     }
     try {
-      // Web API is GET (no body); matches /api/products/barcode
       const res = await adminFetch('/api/products/barcode', { method: 'GET' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -190,22 +198,45 @@ export default function ProductEditPage() {
 
     setIsSaving(true);
     try {
-      const imageUrl = uploadedImageUrl || formData.image.trim();
+      let imageUrl = uploadedImageUrl || formData.image.trim();
+      if (imageFile && !uploadedImageUrl) {
+        if (online) {
+          imageUrl = await uploadProductImage(imageFile);
+        } else {
+          // Persist a compact data URL so the product is usable offline until reconnect.
+          imageUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result ?? ''));
+            reader.onerror = () => reject(new Error('Could not read image'));
+            reader.readAsDataURL(imageFile);
+          });
+          if (imageUrl.length > 700_000) {
+            throw new Error(
+              'Image is too large to save offline. Use a smaller image or connect to upload.'
+            );
+          }
+        }
+      }
+
       let barcode = formData.barcode.trim();
 
-      if (isNewProduct && !barcode && online) {
-        const barcodeResponse = await adminFetch('/api/products/barcode', {
-          method: 'GET',
-        });
-        const barcodeData = await barcodeResponse.json().catch(() => ({}));
-        if (!barcodeResponse.ok) {
-          throw new Error(
-            typeof barcodeData.error === 'string'
-              ? barcodeData.error
-              : 'Failed to generate barcode'
-          );
+      if (isNewProduct && !barcode) {
+        if (online) {
+          const barcodeResponse = await adminFetch('/api/products/barcode', {
+            method: 'GET',
+          });
+          const barcodeData = await barcodeResponse.json().catch(() => ({}));
+          if (!barcodeResponse.ok) {
+            throw new Error(
+              typeof barcodeData.error === 'string'
+                ? barcodeData.error
+                : 'Failed to generate barcode'
+            );
+          }
+          barcode = String(barcodeData.barcode ?? '');
+        } else {
+          barcode = `MSC${Date.now().toString().slice(-10)}${Math.floor(10 + Math.random() * 89)}`;
         }
-        barcode = String(barcodeData.barcode ?? '');
       }
 
       const productPayload = {
@@ -224,10 +255,14 @@ export default function ProductEditPage() {
 
       if (isNewProduct) {
         await addProduct(productPayload);
-        toast.success('Product created');
+        toast.success(
+          online ? 'Product created' : 'Product saved offline — will sync when online'
+        );
       } else if (productId) {
         await updateProduct(productId, productPayload);
-        toast.success('Product updated');
+        toast.success(
+          online ? 'Product updated' : 'Product updated offline — will sync when online'
+        );
       }
       navigate('/products');
     } catch (error) {

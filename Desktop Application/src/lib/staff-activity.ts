@@ -1,3 +1,4 @@
+import { isOnline } from './offline/connectivity';
 import { adminFetch } from '@/lib/admin-api';
 
 export type DesktopActivityAction =
@@ -23,6 +24,7 @@ export function logDesktopActivity(input: {
   resourceId?: string;
   metrics?: Record<string, string | number | boolean | null>;
 }): void {
+  if (!isOnline()) return;
   void adminFetch('/api/activity', {
     method: 'POST',
     body: JSON.stringify({
@@ -30,6 +32,6 @@ export function logDesktopActivity(input: {
       channel: 'desktop',
     }),
   }).catch(() => {
-    /* ignore when offline */
+    /* ignore when offline / API down */
   });
 }

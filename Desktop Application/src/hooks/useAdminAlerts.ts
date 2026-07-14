@@ -6,6 +6,8 @@ import {
   playAlertChime,
   setAlertsMuted,
 } from '@/lib/alert-sound';
+import { getOrders } from '@/lib/firestore';
+import { listContactMessagesClient } from '@/lib/messages';
 import { useOnline } from '@/hooks/useOnline';
 
 export type AdminAlerts = {
@@ -76,11 +78,38 @@ export function useAdminAlerts(enabled = true) {
     [muted]
   );
 
+  const refreshFromCache = useCallback(async () => {
+    try {
+      const [orders, messages] = await Promise.all([
+        getOrders().catch(() => []),
+        listContactMessagesClient('all', 100).catch(() => []),
+      ]);
+      const next = {
+        pendingOrders: orders.filter((o) => o.status === 'pending').length,
+        newMessages: messages.filter((m) => m.status === 'new').length,
+      };
+      prevRef.current = next;
+      primedRef.current = true;
+      setAlerts(next);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!enabled || !online) return;
+    if (!enabled) return;
+    if (!online) {
+      await refreshFromCache();
+      return;
+    }
     try {
       const res = await adminFetch('/api/admin/alerts');
-      if (!res.ok) return;
+      if (!res.ok) {
+        await refreshFromCache();
+        return;
+      }
       const data = (await res.json()) as AdminAlerts;
       const next = {
         pendingOrders: Number(data.pendingOrders) || 0,
@@ -96,11 +125,11 @@ export function useAdminAlerts(enabled = true) {
       prevRef.current = next;
       setAlerts(next);
     } catch {
-      /* offline / auth blip */
+      await refreshFromCache();
     } finally {
       setLoading(false);
     }
-  }, [enabled, online, notify]);
+  }, [enabled, online, notify, refreshFromCache]);
 
   useEffect(() => {
     if (!enabled) return;

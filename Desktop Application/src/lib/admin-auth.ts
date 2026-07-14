@@ -1,7 +1,14 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from './firebase';
 import { isOnline } from './offline/connectivity';
-import { localGet, localSet, localRemove, type OfflineSession } from './offline/local-store';
+import {
+  localGet,
+  localSet,
+  localRemove,
+  type OfflineSession,
+  type OfflineAccessStatus,
+} from './offline/local-store';
+import type { StaffRole } from './types';
 
 export const ADMIN_ACCESS_DENIED_MESSAGE =
   'Your account does not have access yet. Ask a Super Admin to approve you from the web admin dashboard.';
@@ -10,7 +17,7 @@ export function getAdminEmails(): string[] {
   const raw = import.meta.env.VITE_ADMIN_EMAILS ?? '';
   return raw
     .split(',')
-    .map((email) => email.trim().toLowerCase())
+    .map((email: string) => email.trim().toLowerCase())
     .filter(Boolean);
 }
 
@@ -23,13 +30,28 @@ export function userHasAdminRole(user: User): boolean {
   return isAdminEmail(user.email);
 }
 
-export async function saveOfflineSession(user: User): Promise<void> {
+export type OfflineSessionAccess = {
+  accessStatus: OfflineAccessStatus;
+  role?: StaffRole;
+  isSuperAdmin?: boolean;
+  active?: boolean;
+};
+
+export async function saveOfflineSession(
+  user: User,
+  access?: OfflineSessionAccess
+): Promise<void> {
   if (!user.email) return;
+  const previous = await getOfflineSession();
   const session: OfflineSession = {
     email: user.email.toLowerCase(),
     uid: user.uid,
-    displayName: user.displayName ?? undefined,
+    displayName: user.displayName ?? previous?.displayName,
     savedAt: Date.now(),
+    accessStatus: access?.accessStatus ?? previous?.accessStatus,
+    role: access?.role ?? previous?.role,
+    isSuperAdmin: access?.isSuperAdmin ?? previous?.isSuperAdmin,
+    active: access?.active ?? previous?.active,
   };
   await localSet('session', session);
 }
@@ -54,7 +76,6 @@ export async function ensureFirestoreAuthReady(): Promise<void> {
       await currentUser.getIdToken(false);
     } catch {
       if (!isOnline()) {
-        // Cached token still attached to SDK for offline Firestore rules in many cases
         return;
       }
       throw new Error('Could not refresh authentication. Please sign in again.');
@@ -72,7 +93,7 @@ export async function ensureFirestoreAuthReady(): Promise<void> {
             : 'No offline session found. Connect to the internet and sign in once.'
         )
       );
-    }, isOnline() ? 10_000 : 4_000);
+    }, isOnline() ? 10_000 : 8_000);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;

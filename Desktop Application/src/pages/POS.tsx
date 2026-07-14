@@ -12,7 +12,7 @@ import {
   CreditCard,
   X,
 } from 'lucide-react';
-import { getProducts, getProductByBarcode, getSaleById } from '@/lib/firestore';
+import { getProducts, getProductByBarcode } from '@/lib/firestore';
 import { createSale, PAYMENT_METHODS, voidSale } from '@/lib/sales';
 import { formatUgx } from '@/lib/currency';
 import type { Product, Sale, SalePaymentMethod } from '@/lib/types';
@@ -156,9 +156,10 @@ export default function POSPage() {
   const handleCheckout = async () => {
     if (!cart.length) return;
     setProcessing(true);
+    const cartSnapshot = cart;
     try {
-      const saleId = await createSale({
-        items: cart.map((item) => ({
+      const sale = await createSale({
+        items: cartSnapshot.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
         })),
@@ -177,17 +178,27 @@ export default function POSPage() {
       setCheckoutOpen(false);
       setAmountTendered('');
       setPaymentReference('');
-      const updated = await getProducts();
-      setProducts(updated.filter((p) => p.stock > 0));
 
-      try {
-        const sale = await getSaleById(saleId);
-        if (sale) {
-          setReceiptSale(sale);
-          setReceiptOpen(true);
-        }
-      } catch {
-        /* receipt modal optional if cache miss */
+      // Apply stock locally first so checkout can close offline without waiting on network.
+      const soldQty = new Map(
+        cartSnapshot.map((item) => [item.product.id, item.quantity] as const)
+      );
+      setProducts((prev) =>
+        prev
+          .map((p) => {
+            const qty = soldQty.get(p.id);
+            return qty ? { ...p, stock: p.stock - qty } : p;
+          })
+          .filter((p) => p.stock > 0)
+      );
+
+      setReceiptSale(sale);
+      setReceiptOpen(true);
+
+      if (online) {
+        void getProducts()
+          .then((updated) => setProducts(updated.filter((p) => p.stock > 0)))
+          .catch(() => undefined);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Checkout failed');
@@ -204,9 +215,27 @@ export default function POSPage() {
       toast.success('Sale voided');
       setConfirmKind(null);
       setReceiptOpen(false);
+
+      const restored = new Map(
+        receiptSale.items.map((item) => [item.productId, item.quantity] as const)
+      );
+      setProducts((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        for (const [productId, qty] of restored) {
+          const existing = byId.get(productId);
+          if (existing) {
+            byId.set(productId, { ...existing, stock: existing.stock + qty });
+          }
+        }
+        return [...byId.values()].filter((p) => p.stock > 0);
+      });
       setReceiptSale(null);
-      const updated = await getProducts();
-      setProducts(updated.filter((p) => p.stock > 0));
+
+      if (online) {
+        void getProducts()
+          .then((updated) => setProducts(updated.filter((p) => p.stock > 0)))
+          .catch(() => undefined);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Void failed');
     } finally {

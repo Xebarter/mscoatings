@@ -34,7 +34,7 @@ const app = initializeApp(firebaseConfig);
 /** Persistent IndexedDB cache so catalogs, sales, and inventory work offline. */
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager(),
+    tabManager: persistentSingleTabManager({}),
   }),
 });
 

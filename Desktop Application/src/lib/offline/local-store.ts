@@ -11,6 +11,8 @@ export type SnapshotKey =
   | 'fieldAgents'
   | 'fieldPicks'
   | 'customers'
+  | 'contactMessages'
+  | 'staff'
   | 'session'
   | 'reportCache'
   | 'meta';
@@ -113,11 +115,18 @@ export async function setCachedProductImage(
   }
 }
 
+export type OfflineAccessStatus = 'super_admin' | 'staff' | 'pending';
+
 export interface OfflineSession {
   email: string;
   uid: string;
   displayName?: string;
   savedAt: number;
+  /** Cached access so staff can keep working after reconnect without a staff doc hit. */
+  accessStatus?: OfflineAccessStatus;
+  role?: import('../types').StaffRole;
+  isSuperAdmin?: boolean;
+  active?: boolean;
 }
 
 export interface OfflineMeta {

@@ -1,4 +1,4 @@
-import { listSales, getProducts } from '../firestore';
+import { listSales, getProducts, getOrders } from '../firestore';
 import { isOnline } from './connectivity';
 import { localGet, localSet } from './local-store';
 import type { Sale, Product } from '../types';
@@ -57,15 +57,29 @@ function saleTime(sale: Sale): number {
 
 export async function buildLocalReport(preset: string): Promise<LocalReportData> {
   const cacheKey = `report:${preset}`;
-  const cached = await localGet<{ data: LocalReportData; savedAt: number }>('reportCache');
+  const cached = await localGet<{
+    data: LocalReportData;
+    savedAt: number;
+    key?: string;
+  }>('reportCache');
 
   let sales: Sale[] = [];
   let products: Product[] = [];
+  let pendingOrders = 0;
 
   try {
-    [sales, products] = await Promise.all([listSales(500), getProducts()]);
+    const [salesResult, productsResult, ordersResult] = await Promise.all([
+      listSales(500),
+      getProducts(),
+      getOrders().catch(() => []),
+    ]);
+    sales = salesResult;
+    products = productsResult;
+    pendingOrders = ordersResult.filter((o) => o.status === 'pending').length;
   } catch {
-    if (cached?.data) return { ...cached.data, source: 'offline' };
+    if (cached?.data && (!cached.key || cached.key === cacheKey)) {
+      return { ...cached.data, source: 'offline' };
+    }
     throw new Error('No offline report data available');
   }
 
@@ -117,7 +131,7 @@ export async function buildLocalReport(preset: string): Promise<LocalReportData>
       averageOrderValue: totalSales > 0 ? totalRevenue / totalSales : 0,
       totalProductsSold,
       lowStockCount: products.filter((p) => p.stock <= (p.reorderLevel ?? 5)).length,
-      pendingOrders: 0,
+      pendingOrders,
     },
     revenueByDay: Array.from(dayMap.entries()).map(([date, v]) => ({ date, ...v })),
     topProducts: Array.from(productMap.values())

@@ -1,6 +1,8 @@
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDocFromCache, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { ensureFirestoreAuthReady } from './admin-auth';
+import { isOnline } from './offline/connectivity';
+import { getDocHybrid } from './offline/firestore-reads';
 
 function staffDocId(email: string): string {
   return email.trim().toLowerCase().replace('@', '_at_').replace(/\./g, '_dot_');
@@ -24,10 +26,14 @@ export async function requestStaffAccess(displayName: string): Promise<void> {
     throw new Error('Please provide your name.');
   }
 
+  if (!isOnline()) {
+    throw new Error('Connect to the internet to request access the first time.');
+  }
+
   const ref = doc(db, 'staff', staffDocId(email));
 
   try {
-    const existing = await getDoc(ref);
+    const existing = await getDocHybrid(ref).catch(() => getDocFromCache(ref));
     if (existing.exists()) {
       const data = existing.data();
       if (data.active) {
@@ -36,7 +42,6 @@ export async function requestStaffAccess(displayName: string): Promise<void> {
       return;
     }
   } catch (error) {
-    // If get fails for another reason, still attempt create
     const message = error instanceof Error ? error.message : '';
     if (message.includes('already has access')) throw error;
   }

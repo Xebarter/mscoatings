@@ -41,26 +41,23 @@ export default function MessagesPage() {
   const [source, setSource] = useState<'api' | 'firestore'>('api');
 
   const load = async () => {
-    if (!online) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      try {
-        const res = await adminFetch('/api/messages?status=all');
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(
-            typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
-          );
+      if (online) {
+        try {
+          const res = await adminFetch('/api/messages?status=all');
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(
+              typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+            );
+          }
+          setMessages((data.messages as ContactMessage[]) ?? []);
+          setSource('api');
+          bumpAlerts();
+          return;
+        } catch (apiError) {
+          console.warn('Messages API unavailable, using Firestore', apiError);
         }
-        setMessages((data.messages as ContactMessage[]) ?? []);
-        setSource('api');
-        bumpAlerts();
-        return;
-      } catch (apiError) {
-        console.warn('Messages API unavailable, using Firestore', apiError);
       }
 
       const local = await listContactMessagesClient('all');
@@ -187,15 +184,6 @@ export default function MessagesPage() {
 
   if (loading) return <PageLoader />;
 
-  if (!online) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold text-slate-900">Messages</h1>
-        <p className="text-slate-500">Connect to the internet to view contact messages.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -203,7 +191,11 @@ export default function MessagesPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Messages</h1>
           <p className="mt-1 text-slate-500">
             Contact form inbox from the website
-            {source === 'firestore' ? ' · synced via Firestore' : ''}
+            {!online
+              ? ' · offline cache'
+              : source === 'firestore'
+                ? ' · synced via Firestore'
+                : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -218,13 +210,15 @@ export default function MessagesPage() {
             <RefreshCw size={16} />
             Refresh
           </button>
-          <button
-            type="button"
-            onClick={() => window.open(`${API_BASE}/admin/messages`, '_blank')}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Open in browser
-          </button>
+          {online && (
+            <button
+              type="button"
+              onClick={() => window.open(`${API_BASE}/admin/messages`, '_blank')}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Open in browser
+            </button>
+          )}
         </div>
       </div>
 

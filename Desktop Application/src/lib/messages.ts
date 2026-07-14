@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  getDocs,
   updateDoc,
   query,
   orderBy,
@@ -12,6 +11,9 @@ import {
 import { ensureFirestoreAuthReady } from './admin-auth';
 import { db } from './firebase';
 import { toFirestoreError } from './firestore';
+import { getDocsHybrid } from './offline/firestore-reads';
+import { isOnline } from './offline/connectivity';
+import { localGet, localSet } from './offline/local-store';
 import { logDesktopActivity } from './staff-activity';
 
 export type ContactMessageStatus = 'new' | 'read' | 'replied' | 'archived';
@@ -59,6 +61,18 @@ function mapDoc(id: string, data: DocumentData): ContactMessage {
   };
 }
 
+async function saveMessagesMirror(items: ContactMessage[]): Promise<void> {
+  await localSet('contactMessages', { items, savedAt: Date.now() });
+}
+
+async function patchMessagesMirror(
+  mutator: (items: ContactMessage[]) => ContactMessage[]
+): Promise<void> {
+  const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
+  if (!cached?.items) return;
+  await saveMessagesMirror(mutator(cached.items));
+}
+
 export async function listContactMessagesClient(
   status: ContactMessageStatus | 'all' = 'all',
   max = 100
@@ -66,6 +80,18 @@ export async function listContactMessagesClient(
   try {
     await ensureFirestoreAuthReady();
     const capped = Math.min(max, 200);
+
+    if (!isOnline()) {
+      const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
+      if (cached?.items) {
+        const items =
+          status === 'all'
+            ? cached.items
+            : cached.items.filter((m) => m.status === status);
+        return items.slice(0, capped);
+      }
+    }
+
     const q =
       status === 'all'
         ? query(contactMessagesCollection, orderBy('createdAt', 'desc'), limit(capped))
@@ -76,8 +102,24 @@ export async function listContactMessagesClient(
             limit(capped)
           );
 
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => mapDoc(d.id, d.data()));
+    try {
+      const snap = await getDocsHybrid(q);
+      const items = snap.docs.map((d) => mapDoc(d.id, d.data()));
+      if (status === 'all') {
+        await saveMessagesMirror(items);
+      }
+      return items;
+    } catch (error) {
+      const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
+      if (cached?.items?.length) {
+        const items =
+          status === 'all'
+            ? cached.items
+            : cached.items.filter((m) => m.status === status);
+        return items.slice(0, capped);
+      }
+      throw error;
+    }
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -112,25 +154,43 @@ export async function updateContactMessageClient(
     }
     await updateDoc(ref, patch);
 
-    const messages = await listContactMessagesClient('all', 200);
-    const updated = messages.find((m) => m.id === id);
-    const result: ContactMessage = updated
-      ? {
-          ...updated,
+    let result: ContactMessage | undefined;
+    await patchMessagesMirror((items) =>
+      items.map((m) => {
+        if (m.id !== id) return m;
+        result = {
+          ...m,
           ...(status ? { status } : {}),
           ...(updates.adminNotes !== undefined
             ? { adminNotes: updates.adminNotes }
             : {}),
-        }
-      : {
-          id,
-          name: '',
-          email: '',
-          subject: '',
-          message: '',
-          status: status ?? 'new',
-          adminNotes: updates.adminNotes,
+          updatedAt: new Date().toISOString(),
         };
+        return result;
+      })
+    );
+
+    if (!result) {
+      const messages = await listContactMessagesClient('all', 200);
+      result = messages.find((m) => m.id === id) ?? {
+        id,
+        name: '',
+        email: '',
+        subject: '',
+        message: '',
+        status: status ?? 'new',
+        adminNotes: updates.adminNotes,
+      };
+      if (status || updates.adminNotes !== undefined) {
+        result = {
+          ...result,
+          ...(status ? { status } : {}),
+          ...(updates.adminNotes !== undefined
+            ? { adminNotes: updates.adminNotes }
+            : {}),
+        };
+      }
+    }
 
     if (status) {
       logDesktopActivity({

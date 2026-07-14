@@ -1,9 +1,6 @@
 import {
   collection,
   doc,
-  getDocs,
-  getDocsFromCache,
-  getDoc,
   getDocFromCache,
   addDoc,
   updateDoc,
@@ -13,14 +10,13 @@ import {
   where,
   orderBy,
   limit,
-  type Query,
-  type DocumentData,
-  type QuerySnapshot,
 } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
+import { auth } from './firebase';
 import { ensureFirestoreAuthReady } from './admin-auth';
 import { db } from './firebase';
 import { isOnline } from './offline/connectivity';
+import { getDocHybrid, getDocsHybrid } from './offline/firestore-reads';
 import { localGet, localSet, type SnapshotKey } from './offline/local-store';
 import { prefetchProductImages } from './offline/product-images';
 import type { Product, Order, Sale, StockMovement, FieldAgent, FieldPick, Staff, Customer } from './types';
@@ -50,32 +46,19 @@ async function ensureAccess() {
   await ensureFirestoreAuthReady();
 }
 
-async function getDocsHybrid(q: Query<DocumentData>): Promise<QuerySnapshot<DocumentData>> {
-  if (!isOnline()) {
-    try {
-      return await getDocsFromCache(q);
-    } catch {
-      // Cache empty — try network path which may fail; caller uses local mirror
-      return await getDocs(q);
-    }
-  }
-
-  try {
-    return await getDocs(q);
-  } catch (error) {
-    try {
-      return await getDocsFromCache(q);
-    } catch {
-      throw error;
-    }
-  }
-}
-
 async function withLocalMirror<T>(
   key: SnapshotKey,
   fetch: () => Promise<T[]>,
   serialize?: (items: T[]) => unknown
 ): Promise<T[]> {
+  // Prefer IndexedDB mirror immediately when offline so POS/checkout never blocks.
+  if (!isOnline()) {
+    const cached = await localGet<{ items: T[]; savedAt: number }>(key);
+    if (cached?.items) {
+      return cached.items;
+    }
+  }
+
   try {
     const items = await fetch();
     await localSet(key, {
@@ -85,18 +68,78 @@ async function withLocalMirror<T>(
     return items;
   } catch (error) {
     const cached = await localGet<{ items: T[]; savedAt: number }>(key);
-    if (cached?.items?.length) {
+    if (cached?.items) {
       return cached.items;
     }
     throw toFirestoreError(error);
   }
 }
 
-/** Strip Firestore Timestamp to plain millis for IndexedDB cloning safety. */
+function serializeTimestamp(value: unknown): { seconds: number; nanoseconds: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as { seconds?: number; nanoseconds?: number };
+  if (typeof v.seconds === 'number') {
+    return { seconds: v.seconds, nanoseconds: v.nanoseconds ?? 0 };
+  }
+  return null;
+}
+
+/** Strip Firestore Timestamp for IndexedDB cloning safety. */
 function serializeProducts(items: Product[]) {
   return items.map((p) => ({
     ...p,
-    createdAt: p.createdAt ? { seconds: p.createdAt.seconds, nanoseconds: p.createdAt.nanoseconds } : null,
+    createdAt: serializeTimestamp(p.createdAt),
+  }));
+}
+
+function serializeOrders(items: Order[]) {
+  return items.map((o) => ({
+    ...o,
+    createdAt: serializeTimestamp(o.createdAt),
+  }));
+}
+
+function serializeSales(items: Sale[]) {
+  return items.map((s) => ({
+    ...s,
+    createdAt: serializeTimestamp(s.createdAt),
+  }));
+}
+
+function serializeMovements(items: StockMovement[]) {
+  return items.map((m) => ({
+    ...m,
+    createdAt: serializeTimestamp(m.createdAt),
+  }));
+}
+
+function serializeAgents(items: FieldAgent[]) {
+  return items.map((a) => ({
+    ...a,
+    createdAt: serializeTimestamp(a.createdAt),
+  }));
+}
+
+function serializePicks(items: FieldPick[]) {
+  return items.map((p) => ({
+    ...p,
+    createdAt: serializeTimestamp(p.createdAt),
+    pickedAt: serializeTimestamp(p.pickedAt),
+    closedAt: serializeTimestamp(p.closedAt),
+  }));
+}
+
+function serializeCustomers(items: Customer[]) {
+  return items.map((c) => ({
+    ...c,
+    createdAt: serializeTimestamp(c.createdAt),
+  }));
+}
+
+function serializeStaff(items: Staff[]) {
+  return items.map((s) => ({
+    ...s,
+    createdAt: serializeTimestamp(s.createdAt),
   }));
 }
 
@@ -211,9 +254,7 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
 
 export async function getProductById(productId: string): Promise<Product | null> {
   try {
-    const snap = isOnline()
-      ? await getDoc(doc(productsCollection, productId))
-      : await getDocFromCache(doc(productsCollection, productId));
+    const snap = await getDocHybrid(doc(productsCollection, productId));
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
@@ -228,7 +269,7 @@ async function patchLocalProducts(
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
   if (!cached?.items) return;
   await localSet('products', {
-    items: mutator(cached.items),
+    items: serializeProducts(mutator(cached.items)),
     savedAt: Date.now(),
   });
 }
@@ -320,7 +361,7 @@ export async function getOrders(): Promise<Order[]> {
     return snapshot.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Order)
       .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-  });
+  }, serializeOrders);
   return reviveOrders(items);
 }
 
@@ -328,7 +369,7 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
   try {
     await ensureAccess();
     const ref = doc(ordersCollection, orderId);
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Order;
   } catch {
     /* fall through */
@@ -367,7 +408,7 @@ export async function listSales(limitCount = 100): Promise<Sale[]> {
     const q = query(salesCollection, orderBy('createdAt', 'desc'), limit(limitCount));
     const snapshot = await getDocsHybrid(q);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Sale);
-  });
+  }, serializeSales);
   return reviveSales(items).slice(0, limitCount);
 }
 
@@ -377,7 +418,7 @@ export async function getStockMovements(limitCount = 50): Promise<StockMovement[
     const q = query(stockMovementsCollection, orderBy('createdAt', 'desc'), limit(limitCount));
     const snapshot = await getDocsHybrid(q);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as StockMovement);
-  });
+  }, serializeMovements);
   return reviveMovements(items).slice(0, limitCount);
 }
 
@@ -386,7 +427,7 @@ export async function getFieldAgents(): Promise<FieldAgent[]> {
   const items = await withLocalMirror('fieldAgents', async () => {
     const snapshot = await getDocsHybrid(fieldAgentsCollection);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as FieldAgent);
-  });
+  }, serializeAgents);
   return reviveAgents(items);
 }
 
@@ -401,7 +442,7 @@ export async function getFieldPicks(): Promise<FieldPick[]> {
         const bMs = (b.pickedAt ?? b.createdAt)?.toMillis?.() ?? 0;
         return bMs - aMs;
       });
-  });
+  }, serializePicks);
   return revivePicks(items);
 }
 
@@ -410,7 +451,7 @@ export async function getCustomers(): Promise<Customer[]> {
   const items = await withLocalMirror('customers', async () => {
     const snapshot = await getDocsHybrid(customersCollection);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Customer);
-  });
+  }, serializeCustomers);
   return reviveCustomers(items);
 }
 
@@ -418,39 +459,87 @@ export async function getSaleById(saleId: string): Promise<Sale | null> {
   try {
     await ensureAccess();
     const ref = doc(salesCollection, saleId);
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
-    if (!snap.exists()) {
+    try {
+      const snap = await getDocHybrid(ref);
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as Sale;
+      }
+    } catch {
+      /* fall through to local mirrors */
+    }
+
+    const cached = await localGet<{ items: Sale[]; savedAt: number }>('sales');
+    const fromMirror = cached?.items?.find((s) => s.id === saleId);
+    if (fromMirror) {
+      return reviveSales([fromMirror])[0] ?? fromMirror;
+    }
+
+    if (isOnline()) {
       const sales = await listSales(500);
       return sales.find((s) => s.id === saleId) ?? null;
     }
-    return { id: snap.id, ...snap.data() } as Sale;
+
+    return null;
   } catch (error) {
     throw toFirestoreError(error);
   }
+}
+
+async function cacheStaffMember(staff: Staff): Promise<void> {
+  const cached = await localGet<{ items: Staff[]; savedAt: number }>('staff');
+  const items = cached?.items ?? [];
+  const next = [
+    staff,
+    ...items.filter(
+      (s) => s.id !== staff.id && s.email.toLowerCase() !== staff.email.toLowerCase()
+    ),
+  ].slice(0, 50);
+  await localSet('staff', {
+    items: serializeStaff(next),
+    savedAt: Date.now(),
+  });
 }
 
 export async function getStaffByEmail(email: string): Promise<Staff | null> {
   try {
     const normalized = email.trim().toLowerCase();
     const id = staffDocId(normalized);
+
     try {
-      const snap = isOnline()
-        ? await getDoc(doc(staffCollection, id))
-        : await getDocFromCache(doc(staffCollection, id));
+      const snap = await getDocHybrid(doc(staffCollection, id));
       if (snap.exists()) {
-        return { id: snap.id, ...snap.data() } as Staff;
+        const staff = { id: snap.id, ...snap.data() } as Staff;
+        await cacheStaffMember(staff);
+        return staff;
       }
-      return null;
     } catch {
-      /* fall through to query */
+      /* fall through */
     }
 
-    const q = query(staffCollection, where('email', '==', normalized));
-    const snapshot = await getDocsHybrid(q);
-    if (snapshot.empty) return null;
-    const d = snapshot.docs[0];
-    return { id: d.id, ...d.data() } as Staff;
+    try {
+      const q = query(staffCollection, where('email', '==', normalized));
+      const snapshot = await getDocsHybrid(q);
+      if (!snapshot.empty) {
+        const d = snapshot.docs[0];
+        const staff = { id: d.id, ...d.data() } as Staff;
+        await cacheStaffMember(staff);
+        return staff;
+      }
+    } catch {
+      /* fall through to mirror */
+    }
+
+    const cached = await localGet<{ items: Staff[]; savedAt: number }>('staff');
+    const fromMirror = cached?.items?.find(
+      (s) => s.email.toLowerCase() === normalized || s.id === id
+    );
+    return fromMirror ?? null;
   } catch (error) {
+    const cached = await localGet<{ items: Staff[]; savedAt: number }>('staff');
+    const fromMirror = cached?.items?.find(
+      (s) => s.email.toLowerCase() === email.trim().toLowerCase()
+    );
+    if (fromMirror) return fromMirror;
     throw toFirestoreError(error);
   }
 }
@@ -470,10 +559,14 @@ export async function warmOfflineCache(): Promise<void> {
     getFieldAgents(),
     getFieldPicks(),
     getCustomers(),
+    auth.currentUser?.email
+      ? getStaffByEmail(auth.currentUser.email)
+      : Promise.resolve(null),
+    import('./messages').then((m) => m.listContactMessagesClient('all', 100)),
   ]);
   const productsResult = results[0];
   if (productsResult.status === 'fulfilled') {
-    await prefetchProductImages(productsResult.value);
+    await prefetchProductImages(productsResult.value as Product[]);
   }
   await localSet('meta', { lastSyncedAt: Date.now(), pendingWrites: 0 });
 }

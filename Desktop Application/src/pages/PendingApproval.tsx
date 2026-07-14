@@ -16,8 +16,10 @@ export default function PendingApprovalPage() {
 
   useEffect(() => {
     if (!user?.email || hasAccess) return;
+    if (!navigator.onLine) return;
 
     const interval = setInterval(async () => {
+      if (!navigator.onLine) return;
       try {
         const staff = await getStaffByEmail(user.email!);
         if (staff?.active) {
@@ -34,6 +36,10 @@ export default function PendingApprovalPage() {
 
   const handleRefresh = async () => {
     if (!user?.email) return;
+    if (!navigator.onLine) {
+      toast.error('Connect to the internet to check approval status');
+      return;
+    }
     setChecking(true);
     try {
       const staff = await getStaffByEmail(user.email);

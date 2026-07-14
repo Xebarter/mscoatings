@@ -3,10 +3,6 @@ import {
   writeBatch,
   Timestamp,
   collection,
-  getDoc,
-  getDocFromCache,
-  getDocs,
-  getDocsFromCache,
   query,
   where,
 } from 'firebase/firestore';
@@ -15,6 +11,7 @@ import { ensureFirestoreAuthReady } from './admin-auth';
 import type { Sale, SaleItem, SalePaymentMethod, Product, StockMovement } from './types';
 import { toFirestoreError, getProductById, getProducts, getSaleById } from './firestore';
 import { isOnline } from './offline/connectivity';
+import { getDocHybrid, getDocsHybrid } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
 import { logDesktopActivity } from './staff-activity';
 
@@ -37,11 +34,16 @@ function generateReceiptNumber(): string {
 async function loadProduct(productId: string): Promise<Product> {
   const ref = doc(db, 'products', productId);
   try {
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
   }
+
+  const mirrored = await localGet<{ items: Product[] }>('products');
+  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
+  if (fromMirror) return fromMirror;
+
   const product = await getProductById(productId);
   if (!product) throw new Error(`Product not found: ${productId}`);
   return product;
@@ -103,7 +105,7 @@ async function removeLocalMovements(movementIds: Set<string>) {
 async function loadSale(saleId: string): Promise<Sale> {
   const ref = doc(db, 'sales', saleId);
   try {
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Sale;
   } catch {
     /* fall through */
@@ -125,7 +127,7 @@ async function findSaleMovementIds(
       where('referenceId', '==', referenceId)
     );
     try {
-      const snap = isOnline() ? await getDocs(q) : await getDocsFromCache(q);
+      const snap = await getDocsHybrid(q);
       snap.docs.forEach((d) => ids.add(d.id));
     } catch {
       /* offline empty / missing index — fall through to local mirror */
@@ -153,7 +155,7 @@ async function findSaleMovementIds(
  * Creates a sale using writeBatch (works offline — queued & synced by Firestore).
  * Transactions cannot run offline, so batch writes are required for POS reliability.
  */
-export async function createSale(input: CreateSaleInput): Promise<string> {
+export async function createSale(input: CreateSaleInput): Promise<Sale> {
   await ensureFirestoreAuthReady();
   const user = auth.currentUser;
   if (!user?.email) throw new Error('You must be signed in to complete a sale.');
@@ -260,10 +262,12 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
 
     await batch.commit();
 
+    const sale: Sale = { id: saleRef.id, ...salePayload };
+
     await patchLocalProductStock(
       stockUpdates.map((u) => ({ productId: u.productId, stock: u.stock }))
     );
-    await prependLocalSale({ id: saleRef.id, ...salePayload });
+    await prependLocalSale(sale);
     await prependLocalMovements(localMovements);
 
     if (isOnline()) {
@@ -283,7 +287,7 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
       },
     });
 
-    return saleRef.id;
+    return sale;
   } catch (error) {
     throw toFirestoreError(error);
   }

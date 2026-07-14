@@ -297,11 +297,14 @@ app.whenReady().then(() => {
       }
 
       try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12_000);
         const response = await fetch(payload.url, {
           method: payload.method ?? 'GET',
           headers: payload.headers,
           body: payload.body ?? undefined,
-        });
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timer));
         const body = await response.text();
         return {
           ok: response.ok,

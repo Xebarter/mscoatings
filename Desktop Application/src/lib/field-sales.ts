@@ -2,8 +2,6 @@ import {
   addDoc,
   collection,
   doc,
-  getDoc,
-  getDocFromCache,
   Timestamp,
   updateDoc,
   writeBatch,
@@ -29,6 +27,7 @@ import {
   toFirestoreError,
 } from './firestore';
 import { isOnline } from './offline/connectivity';
+import { getDocHybrid } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
 import { logDesktopActivity } from './staff-activity';
 
@@ -55,11 +54,14 @@ async function requireUserEmail(): Promise<string> {
 async function loadProduct(productId: string): Promise<Product> {
   const ref = doc(db, 'products', productId);
   try {
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
   }
+  const mirrored = await localGet<{ items: Product[] }>('products');
+  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
+  if (fromMirror) return fromMirror;
   const product = await getProductById(productId);
   if (!product) throw new Error(`Product not found: ${productId}`);
   return product;
@@ -68,7 +70,7 @@ async function loadProduct(productId: string): Promise<Product> {
 async function loadPick(pickId: string): Promise<FieldPick> {
   const ref = doc(db, 'fieldPicks', pickId);
   try {
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) {
       return { id: snap.id, ...snap.data() } as FieldPick;
     }
@@ -84,7 +86,7 @@ async function loadPick(pickId: string): Promise<FieldPick> {
 async function loadAgent(agentId: string): Promise<FieldAgent | null> {
   const ref = doc(db, 'fieldAgents', agentId);
   try {
-    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    const snap = await getDocHybrid(ref);
     if (snap.exists()) {
       return { id: snap.id, ...snap.data() } as FieldAgent;
     }
