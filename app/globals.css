@@ -303,3 +303,11 @@
     -webkit-backdrop-filter: blur(12px);
   }
 }
+
+/* Screen-only helper; dedicated print uses buildEnterpriseReportPrintDocument */
+@media print {
+  .admin-layout-sidebar,
+  .admin-filter-chrome {
+    display: none !important;
+  }
+}

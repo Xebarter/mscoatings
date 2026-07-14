@@ -6,6 +6,7 @@ import {
   getOrderByReference,
   updateOrderPaymentFromPaytota,
 } from '@/lib/orders-server';
+import { decrementStockForOrder } from '@/lib/inventory-server';
 import type { OrderPaymentStatus, OrderStatus } from '@/lib/firestore';
 
 function mapWebhookToOrderUpdate(payload: PaytotaWebhookPayload): {
@@ -71,6 +72,21 @@ export async function POST(request: NextRequest) {
     }
 
     await updateOrderPaymentFromPaytota(order.id, update);
+
+    if (update.paymentStatus === 'paid') {
+      try {
+        await decrementStockForOrder(
+          order.id,
+          order.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+          'paytota-webhook'
+        );
+      } catch (stockError) {
+        console.error('Stock deduction failed for order', order.id, stockError);
+      }
+    }
 
     return NextResponse.json({ received: true, orderId: order.id });
   } catch (error) {

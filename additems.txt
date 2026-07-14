@@ -1,112 +1,128 @@
-**Cookie Policy**  
-**MS Coatings**  
-**Effective Date: June 19, 2026**
+Upgrade the existing Ms Coatings admin dashboard into a lightweight ERP system with an integrated Point of Sale (POS) system. The goal is to create a complete business management platform for a car paint wholesale and retail business.
 
-At MS Coatings, we use cookies and similar tracking technologies to enhance your shopping experience, improve our website (https://www.mscoatings.com), and deliver relevant content and advertisements (collectively, the “Site”). This Cookie Policy explains what cookies are, the types we use, why we use them, and how you can manage your cookie preferences.
+The system should retain all existing features (product management and online payment handling) while adding the following MVP ERP and POS capabilities:
 
-This policy should be read alongside our [Privacy Policy](/privacy-policy) and [Terms of Service](/terms-of-service).
+1. POS (Point of Sale) System
+- Create a fast and user-friendly sales interface for counter sales.
+- Support barcode scanning using:
+  - USB barcode scanners
+  - Mobile phone camera barcode scanning (where possible)
+- Allow searching products by:
+  - Barcode
+  - Product name
+  - Category
+  - Brand
+  - Paint code/model reference
+- Automatically fetch product details when scanned:
+  - Product name
+  - Category
+  - Selling price
+  - Available stock
+- Add products to a shopping cart.
+- Allow quantity adjustments.
+- Apply discounts (with permission controls).
+- Support multiple payment methods:
+  - Cash
+  - Mobile Money
+  - Bank transfer
+  - Card payments
+  - Online payments already integrated
+- Generate and print receipts.
+- Store every sale as a transaction record.
+- Allow sales returns and cancellations with proper authorization.
 
-### 1. What Are Cookies?
+2. Inventory Management
+- Convert current product management into a complete inventory system.
+- Track:
+  - Current stock levels
+  - Stock movement history
+  - Incoming stock
+  - Sold stock
+  - Damaged/lost stock adjustments
+- Automatically reduce inventory after every sale.
+- Provide low-stock alerts.
+- Allow manual stock adjustments.
+- Support product variations such as:
+  - Paint brand
+  - Paint type
+  - Colour/code
+  - Size/volume
+  - Packaging unit
 
-Cookies are small text files that are stored on your device (computer, tablet, or mobile) when you visit a website. They allow the website to recognize your device and remember certain information about your visit, such as your preferences and settings.
+3. Purchase and Supplier Management
+- Add supplier management.
+- Record purchases from suppliers.
+- Create purchase orders.
+- Update inventory automatically after receiving stock.
+- Track supplier payment status.
 
-We also use similar technologies such as web beacons, pixels, and local storage for the same purposes.
+4. Customer Management (CRM)
+- Create customer profiles.
+- Store:
+  - Customer name
+  - Phone number
+  - Purchase history
+  - Total spending
+  - Outstanding balances
+- Support customer accounts for repeat buyers.
+- Add loyalty points or customer discounts (MVP-ready structure).
 
-### 2. Why We Use Cookies
+5. Sales and Financial Reporting
+Create dashboards showing:
+- Daily, weekly, monthly sales
+- Best-selling products
+- Revenue trends
+- Profit estimates
+- Stock valuation
+- Payment method breakdown
+- Sales by employee/user
 
-We use cookies to:
-- Enable essential Site functionality (e.g., shopping cart and secure checkout)
-- Personalize your experience (e.g., remembering your vehicle details or preferred paint colors)
-- Analyze how visitors use our Site to improve performance
-- Deliver relevant marketing and advertisements
-- Ensure security and prevent fraud
+6. Employee and User Management
+Add role-based permissions:
+- Admin
+- Manager
+- Sales staff
+- Inventory staff
 
-### 3. Types of Cookies We Use
+Control access to:
+- Viewing reports
+- Changing prices
+- Applying discounts
+- Adjusting stock
+- Processing refunds
 
-We categorize the cookies we use as follows:
+7. Expense Tracking (Basic MVP)
+Add simple expense recording:
+- Expense category
+- Amount
+- Date
+- Description
+- Person responsible
 
-#### Essential Cookies (Strictly Necessary)
-These cookies are required for the Site to function properly and cannot be disabled.
-- Shopping cart and checkout process
-- Account login and authentication
-- Security features (fraud detection)
-- Remembering your cookie consent preferences
+8. Audit Trail
+Track important actions:
+- Product updates
+- Price changes
+- Stock adjustments
+- Sales cancellations
+- Refunds
+- User activity
 
-#### Performance and Analytics Cookies
-These help us understand how visitors interact with the Site so we can improve it.
-- Google Analytics (or similar) to track page views, bounce rates, and popular products
-- Site usage statistics (e.g., which car paint categories are most viewed)
-- Error tracking and performance monitoring
+9. Dashboard Improvements
+Create an ERP overview dashboard with:
+- Today's sales
+- Today's profit estimate
+- Low-stock products
+- Recent transactions
+- Pending supplier payments
+- Customer balances
 
-#### Functional Cookies
-These allow the Site to remember your choices and provide enhanced features.
-- Language or region preferences
-- Previously viewed products or saved paint color matches
-- Wishlist or favorite items
+10. System Requirements
+- Keep the interface modern, fast, and responsive.
+- Optimize the POS screen for tablets and desktop computers.
+- Ensure barcode scanning works smoothly during high-volume sales.
+- Maintain compatibility with the existing database structure where possible.
+- Do not remove existing online payment functionality.
+- Build this as an MVP first, focusing on reliability and ease of use rather than unnecessary complexity.
 
-#### Targeting / Advertising Cookies
-These cookies help us and our advertising partners deliver more relevant ads on our Site and across the internet.
-- Tracking products you’ve viewed (e.g., specific car paints or coatings)
-- Retargeting advertisements on platforms like Google, Meta (Facebook/Instagram), and others
-- Measuring the effectiveness of our marketing campaigns
-
-### 4. Third-Party Cookies
-
-Some cookies on our Site are placed by third-party service providers. These include:
-- Payment processors (e.g., Stripe, PayPal)
-- Shipping carriers
-- Analytics providers (Google Analytics)
-- Advertising networks (Google Ads, Meta Pixel, etc.)
-- Social media plugins (for sharing products)
-
-These third parties may collect information about your online activity over time and across different websites. We do not control these third-party cookies.
-
-### 5. How Long Cookies Stay on Your Device
-
-- **Session Cookies**: Temporary and deleted when you close your browser.
-- **Persistent Cookies**: Remain on your device for a set period (from a few days to several years) or until you delete them.
-
-### 6. Managing Your Cookie Preferences
-
-You have several options to control cookies:
-
-**Browser Settings**  
-Most web browsers allow you to:
-- Block all or specific cookies
-- Delete existing cookies
-- Receive notifications when a cookie is set
-
-Please note that disabling essential cookies may prevent you from using certain features of the Site, such as adding items to your cart or completing a purchase.
-
-**Cookie Consent Manager**  
-When you first visit our Site, you may see a cookie consent banner that allows you to accept or customize your preferences.
-
-**Opting Out of Targeted Advertising**  
-You can opt out of interest-based advertising through industry initiatives such as:
-- [YourAdChoices](https://youradchoices.com/) (US)
-- [European Interactive Digital Advertising Alliance (EDAA)](https://www.youronlinechoices.com/)
-
-**Mobile Devices**  
-You can manage tracking permissions through your device settings (iOS or Android).
-
-### 7. Do Not Track Signals
-
-Our Site does not currently respond to “Do Not Track” (DNT) signals sent by your browser. However, you can still manage your preferences through the methods described above.
-
-### 8. Updates to This Cookie Policy
-
-We may update this Cookie Policy from time to time to reflect changes in our practices or applicable laws. We will post the revised policy on this page with an updated effective date. We encourage you to review it periodically.
-
-### 9. Contact Us
-
-If you have any questions about this Cookie Policy or our use of cookies, please contact us at:
-
-**MS Coatings**  
-[Insert Physical Address]  
-Email: privacy@mscoatings.com  
-
----
-
-Thank you for shopping with MS Coatings. We value your privacy and are committed to providing a transparent and secure online experience while you browse and purchase premium car paints and automotive coatings.
-
-*This Cookie Policy is for general informational purposes and does not constitute legal advice. We recommend consulting a qualified attorney to ensure full compliance with applicable data protection laws in your jurisdiction.*
+The final result should be a complete retail ERP/POS solution suitable for managing a car paint wholesale and retail store.

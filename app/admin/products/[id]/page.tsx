@@ -10,10 +10,12 @@ import {
 } from '@/lib/firestore';
 import { uploadProductImage, validateProductImage } from '@/lib/storage';
 import { requestCatalogRevalidation } from '@/lib/request-catalog-revalidation';
+import { adminFetch } from '@/lib/admin-api';
+import { downloadProductBarcodeLabel } from '@/lib/product-barcode';
 import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
-import { ArrowLeft, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Trash2, Upload, X, ScanBarcode } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EditProductPage() {
@@ -37,6 +39,15 @@ export default function EditProductPage() {
     category: '',
     stock: 0,
     image: '',
+    barcode: '',
+    sku: '',
+    brand: '',
+    paintType: '',
+    colourCode: '',
+    sizeVolume: '',
+    packagingUnit: '',
+    costPrice: 0,
+    reorderLevel: 5,
   });
 
   useEffect(() => {
@@ -65,6 +76,15 @@ export default function EditProductPage() {
           category: product.category,
           stock: product.stock,
           image: product.image,
+          barcode: product.barcode ?? '',
+          sku: product.sku ?? '',
+          brand: product.brand ?? '',
+          paintType: product.paintType ?? '',
+          colourCode: product.colourCode ?? '',
+          sizeVolume: product.sizeVolume ?? '',
+          packagingUnit: product.packagingUnit ?? '',
+          costPrice: product.costPrice ?? 0,
+          reorderLevel: product.reorderLevel ?? 5,
         });
         setImagePreview(product.image);
       } else {
@@ -86,7 +106,12 @@ export default function EditProductPage() {
     setFormData((prev) => ({
       ...prev,
       [name]:
-        name === 'price' || name === 'stock' ? parseFloat(value) || 0 : value,
+        name === 'price' ||
+        name === 'stock' ||
+        name === 'costPrice' ||
+        name === 'reorderLevel'
+          ? parseFloat(value) || 0
+          : value,
     }));
   };
 
@@ -194,6 +219,16 @@ export default function EditProductPage() {
     try {
       const imageUrl = uploadedImageUrl || formData.image.trim();
 
+      let barcode = formData.barcode.trim();
+      if (isNewProduct && !barcode) {
+        const barcodeResponse = await adminFetch('/api/products/barcode');
+        const barcodeData = await barcodeResponse.json();
+        if (!barcodeResponse.ok) {
+          throw new Error(barcodeData.error ?? 'Failed to generate barcode');
+        }
+        barcode = barcodeData.barcode;
+      }
+
       const productPayload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -201,6 +236,15 @@ export default function EditProductPage() {
         category: formData.category.trim() || 'Uncategorized',
         stock: formData.stock,
         image: imageUrl,
+        barcode: barcode || undefined,
+        sku: formData.sku.trim() || undefined,
+        brand: formData.brand.trim() || undefined,
+        paintType: formData.paintType.trim() || undefined,
+        colourCode: formData.colourCode.trim() || undefined,
+        sizeVolume: formData.sizeVolume.trim() || undefined,
+        packagingUnit: formData.packagingUnit.trim() || undefined,
+        costPrice: formData.costPrice,
+        reorderLevel: formData.reorderLevel,
       };
 
       if (isNewProduct) {
@@ -325,6 +369,156 @@ export default function EditProductPage() {
                     className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Cost Price (UGX)
+                  </label>
+                  <input
+                    type="number"
+                    name="costPrice"
+                    value={formData.costPrice}
+                    onChange={handleInputChange}
+                    placeholder="30000"
+                    step="1"
+                    min="0"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Reorder Level
+                  </label>
+                  <input
+                    type="number"
+                    name="reorderLevel"
+                    value={formData.reorderLevel}
+                    onChange={handleInputChange}
+                    placeholder="5"
+                    min="0"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Brand
+                  </label>
+                  <input
+                    type="text"
+                    name="brand"
+                    value={formData.brand}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Standox"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Paint Type
+                  </label>
+                  <input
+                    type="text"
+                    name="paintType"
+                    value={formData.paintType}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Basecoat, Clearcoat"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Colour / Paint Code
+                  </label>
+                  <input
+                    type="text"
+                    name="colourCode"
+                    value={formData.colourCode}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Toyota 040 Super White"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Size / Volume
+                  </label>
+                  <input
+                    type="text"
+                    name="sizeVolume"
+                    value={formData.sizeVolume}
+                    onChange={handleInputChange}
+                    placeholder="e.g. 1L, 4L"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Packaging Unit
+                  </label>
+                  <input
+                    type="text"
+                    name="packagingUnit"
+                    value={formData.packagingUnit}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Tin, Can"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    SKU
+                  </label>
+                  <input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleInputChange}
+                    placeholder="Internal SKU"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  />
+                </div>
+
+                {!isNewProduct && formData.barcode && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Barcode
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.barcode}
+                        readOnly
+                        className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono text-sm text-slate-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await downloadProductBarcodeLabel({
+                              id: productId,
+                              ...formData,
+                              createdAt: {} as never,
+                            });
+                            toast.success('Barcode label downloaded');
+                          } catch {
+                            toast.error('Failed to download barcode label');
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <ScanBarcode size={16} />
+                        Print
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

@@ -1,0 +1,118 @@
+import {
+  doc,
+  writeBatch,
+  Timestamp,
+  collection,
+  getDoc,
+  getDocFromCache,
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { ensureFirestoreAuthReady } from './admin-auth';
+import type { StockMovement, StockMovementType, Product } from './types';
+import { toFirestoreError, getProductById } from './firestore';
+import { isOnline } from './offline/connectivity';
+import { localGet, localSet } from './offline/local-store';
+
+const ADJUSTMENT_TYPES: StockMovementType[] = [
+  'adjustment_add',
+  'adjustment_remove',
+  'damaged',
+  'lost',
+];
+
+export interface AdjustStockInput {
+  productId: string;
+  type: StockMovementType;
+  quantity: number;
+  reason?: string;
+}
+
+function getQuantityChange(type: StockMovementType, quantity: number): number {
+  const isDecrease =
+    type === 'adjustment_remove' || type === 'damaged' || type === 'lost';
+  return isDecrease ? -quantity : quantity;
+}
+
+async function loadProduct(productId: string): Promise<Product> {
+  const ref = doc(db, 'products', productId);
+  try {
+    const snap = isOnline() ? await getDoc(ref) : await getDocFromCache(ref);
+    if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
+  } catch {
+    /* fall through */
+  }
+  const product = await getProductById(productId);
+  if (!product) throw new Error('Product not found');
+  return product;
+}
+
+/**
+ * Stock adjustment via writeBatch — queues offline and syncs when connectivity returns.
+ */
+export async function adjustStock(input: AdjustStockInput): Promise<number> {
+  await ensureFirestoreAuthReady();
+  const email = auth.currentUser?.email;
+  if (!email) throw new Error('You must be signed in to adjust stock.');
+  if (!ADJUSTMENT_TYPES.includes(input.type)) throw new Error('Invalid adjustment type.');
+  if (input.quantity <= 0) throw new Error('Quantity must be greater than zero.');
+
+  const quantityChange = getQuantityChange(input.type, input.quantity);
+  const performedBy = email.toLowerCase();
+
+  try {
+    const product = await loadProduct(input.productId);
+    const currentStock = product.stock ?? 0;
+    const newStock = currentStock + quantityChange;
+    if (newStock < 0) throw new Error('Insufficient stock for this adjustment.');
+
+    const createdAt = Timestamp.now();
+    const movementRef = doc(collection(db, 'stockMovements'));
+    const movement: Omit<StockMovement, 'id'> = {
+      productId: input.productId,
+      productName: product.name,
+      type: input.type,
+      quantityChange,
+      resultingStock: newStock,
+      reason: input.reason,
+      performedBy,
+      createdAt,
+    };
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'products', input.productId), { stock: newStock });
+    batch.set(movementRef, movement);
+    await batch.commit();
+
+    const productsCache = await localGet<{ items: Product[]; savedAt: number }>('products');
+    if (productsCache?.items) {
+      await localSet('products', {
+        items: productsCache.items.map((p) =>
+          p.id === input.productId ? { ...p, stock: newStock } : p
+        ),
+        savedAt: Date.now(),
+      });
+    }
+
+    const movementsCache = await localGet<{ items: StockMovement[]; savedAt: number }>(
+      'stockMovements'
+    );
+    await localSet('stockMovements', {
+      items: [{ id: movementRef.id, ...movement }, ...(movementsCache?.items ?? [])].slice(
+        0,
+        100
+      ),
+      savedAt: Date.now(),
+    });
+
+    return newStock;
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+export const ADJUSTMENT_OPTIONS: { value: StockMovementType; label: string }[] = [
+  { value: 'adjustment_add', label: 'Add Stock' },
+  { value: 'adjustment_remove', label: 'Remove Stock' },
+  { value: 'damaged', label: 'Damaged' },
+  { value: 'lost', label: 'Lost / Missing' },
+];

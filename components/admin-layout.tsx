@@ -14,11 +14,22 @@ import {
   LogOut,
   Menu,
   Package,
+  ScanBarcode,
   ShoppingBag,
+  Warehouse,
+  Truck,
   X,
 } from 'lucide-react';
 
-export type AdminSection = 'overview' | 'products' | 'orders' | 'analytics';
+export type AdminSection =
+  | 'overview'
+  | 'products'
+  | 'orders'
+  | 'analytics'
+  | 'pos'
+  | 'inventory'
+  | 'fieldSales'
+  | 'reports';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -35,15 +46,23 @@ const navItems: {
   href: string;
 }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, href: '/admin/dashboard?tab=overview' },
+  { id: 'pos', label: 'Point of Sale', icon: ScanBarcode, href: '/admin/pos' },
   { id: 'products', label: 'Products', icon: Package, href: '/admin/dashboard?tab=products' },
+  { id: 'inventory', label: 'Inventory', icon: Warehouse, href: '/admin/inventory' },
+  { id: 'fieldSales', label: 'Field Sales', icon: Truck, href: '/admin/field-sales' },
   { id: 'orders', label: 'Orders', icon: ShoppingBag, href: '/admin/dashboard?tab=orders' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/admin/dashboard?tab=analytics' },
+  { id: 'reports', label: 'Reports', icon: BarChart3, href: '/admin/reports' },
 ];
 
 function resolveActiveSection(pathname: string, activeSection?: AdminSection): AdminSection {
   if (activeSection) return activeSection;
+  if (pathname.startsWith('/admin/pos') || pathname.startsWith('/admin/sales')) return 'pos';
+  if (pathname.startsWith('/admin/inventory')) return 'inventory';
+  if (pathname.startsWith('/admin/field-sales')) return 'fieldSales';
+  if (pathname.startsWith('/admin/reports')) return 'reports';
   if (pathname.startsWith('/admin/products')) return 'products';
   if (pathname.startsWith('/admin/orders')) return 'orders';
+  if (pathname.includes('tab=analytics')) return 'analytics';
   return 'overview';
 }
 
@@ -106,10 +125,9 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-800 bg-slate-950 lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
-          <Logo href={null} subtitle="Admin Console" />
+          <Logo href={null} subtitle="ERP Console" />
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-5">
@@ -138,7 +156,6 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* Mobile header */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 lg:hidden">
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -152,7 +169,7 @@ export default function AdminLayout({
             </button>
             <div className="flex items-center gap-2">
               <Logo href={null} size="sm" showText={false} />
-              <span className="font-semibold text-slate-900">Admin</span>
+              <span className="font-semibold text-slate-900">ERP</span>
             </div>
           </div>
 
@@ -167,7 +184,6 @@ export default function AdminLayout({
         </div>
       </header>
 
-      {/* Mobile drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -178,7 +194,7 @@ export default function AdminLayout({
           />
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-slate-950 shadow-xl">
             <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
-              <Logo href={null} subtitle="Admin Console" />
+              <Logo href={null} subtitle="ERP Console" />
               <button
                 type="button"
                 onClick={closeMobileMenu}
@@ -221,7 +237,6 @@ export default function AdminLayout({
         </div>
       )}
 
-      {/* Main content */}
       <div className="lg:pl-64">
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
           {(title || actions) && (
