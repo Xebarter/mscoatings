@@ -12,6 +12,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permissions> = {
     manageStaff: true,
     manageFieldSales: true,
     accessPos: true,
+    viewMessages: true,
   },
   manager: {
     applyDiscount: true,
@@ -24,6 +25,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permissions> = {
     manageStaff: false,
     manageFieldSales: true,
     accessPos: true,
+    viewMessages: true,
   },
   sales: {
     applyDiscount: true,
@@ -36,6 +38,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permissions> = {
     manageStaff: false,
     manageFieldSales: false,
     accessPos: true,
+    viewMessages: true,
   },
   inventory: {
     applyDiscount: false,
@@ -48,6 +51,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, Permissions> = {
     manageStaff: false,
     manageFieldSales: false,
     accessPos: false,
+    viewMessages: false,
   },
 };
 

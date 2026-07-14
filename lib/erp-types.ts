@@ -104,6 +104,27 @@ export interface Permissions {
   manageStaff: boolean;
   manageFieldSales: boolean;
   accessPos: boolean;
+  viewMessages: boolean;
+}
+
+export type ContactMessageStatus = 'new' | 'read' | 'replied' | 'archived';
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  status: ContactMessageStatus;
+  createdAt: string;
+  updatedAt: string;
+  readAt?: string;
+  readBy?: string;
+  repliedAt?: string;
+  repliedBy?: string;
+  archivedAt?: string;
+  adminNotes?: string;
 }
 
 export interface FieldAgent {

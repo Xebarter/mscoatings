@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { formatUgx } from '@/lib/currency';
@@ -22,6 +23,21 @@ function formatValue(value: number, format: 'currency' | 'number' | 'percent') {
   return value.toLocaleString();
 }
 
+/** Avoid mounting charts inside display:none / zero-size parents (Recharts warning). */
+function useShowDesktopSparkline() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const apply = () => setShow(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  return show;
+}
+
 export function KpiCard({
   label,
   metric,
@@ -32,11 +48,13 @@ export function KpiCard({
 }: KpiCardProps) {
   const theme = useReportsTheme();
   const isDark = theme === 'dark';
+  const showSpark = useShowDesktopSparkline();
   const sparkData = metric.sparkline.map((value, index) => ({ index, value }));
   const isPositive = (metric.changePercent ?? 0) >= 0;
   const sparkId = `kpi-spark-${label.replace(/\s/g, '')}`;
   const stroke = isDark ? '#38bdf8' : '#0077c8';
   const display = metric.available ? formatValue(metric.value, format) : '—';
+  const hasSpark = showSpark && sparkData.some((d) => d.value > 0);
 
   return (
     <button
@@ -95,9 +113,9 @@ export function KpiCard({
         </div>
       </div>
 
-      {sparkData.some((d) => d.value > 0) && (
-        <div className="relative mt-2 hidden h-8 opacity-80 sm:mt-3 sm:block sm:h-10 dark:opacity-90">
-          <ResponsiveContainer width="100%" height="100%">
+      {hasSpark && (
+        <div className="relative mt-3 h-10 w-full min-w-0 opacity-80 dark:opacity-90">
+          <ResponsiveContainer width="100%" height={40} minWidth={0}>
             <AreaChart data={sparkData}>
               <defs>
                 <linearGradient id={sparkId} x1="0" y1="0" x2="0" y2="1">
@@ -112,6 +130,7 @@ export function KpiCard({
                 fill={`url(#${sparkId})`}
                 strokeWidth={1.75}
                 dot={false}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

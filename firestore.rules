@@ -214,5 +214,14 @@ service cloud.firestore {
       allow update: if hasStaffAccess() && validFieldPickClose();
       allow delete: if isAdmin();
     }
+
+    // Contact form messages — created via Admin SDK API; staff read/update via API too.
+    // Rules keep client SDK locked down if ever used.
+    match /contactMessages/{messageId} {
+      allow read: if hasStaffAccess();
+      allow create: if false;
+      allow update: if hasStaffAccess();
+      allow delete: if isAdmin();
+    }
   }
 }

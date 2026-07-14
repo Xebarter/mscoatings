@@ -30,16 +30,21 @@ interface ChartPanelProps {
 
 function useChartLayout() {
   const [compact, setCompact] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)');
-    const apply = () => setCompact(mq.matches);
+    const apply = () => {
+      setCompact(mq.matches);
+      setReady(true);
+    };
     apply();
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, []);
 
   return {
+    ready,
     height: compact ? 220 : 280,
     yWidth: compact ? 44 : 72,
     tickSize: compact ? 9 : 11,
@@ -47,6 +52,28 @@ function useChartLayout() {
       ? { top: 4, right: 4, left: 0, bottom: 0 }
       : { top: 8, right: 8, left: 0, bottom: 0 },
   };
+}
+
+function ChartBox({
+  height,
+  ready,
+  children,
+}: {
+  height: number;
+  ready: boolean;
+  children: React.ReactElement;
+}) {
+  if (!ready) {
+    return <div className="w-full" style={{ height }} aria-hidden />;
+  }
+
+  return (
+    <div className="w-full min-w-0" style={{ height, minHeight: height }}>
+      <ResponsiveContainer width="100%" height={height} minWidth={0}>
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 export function ChartPanel({
@@ -82,67 +109,65 @@ export function RevenueLineChart({
   }
 
   return (
-    <div className="-mx-1 overflow-x-auto sm:mx-0">
-      <div className="min-w-0 sm:min-w-0" style={{ minWidth: 0 }}>
-        <ResponsiveContainer width="100%" height={layout.height}>
-          <LineChart data={data} margin={layout.margin}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={chart.grid}
-              strokeOpacity={chart.gridOpacity}
-            />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: layout.tickSize, fill: chart.tickMuted }}
-              axisLine={false}
-              tickLine={false}
-              minTickGap={28}
-              tickFormatter={(v) =>
-                new Date(v).toLocaleDateString('en-UG', { month: 'short', day: 'numeric' })
-              }
-            />
-            <YAxis
-              tick={{ fontSize: layout.tickSize, fill: chart.tickMuted }}
-              width={layout.yWidth}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) =>
-                Math.abs(Number(v)) >= 1_000_000
-                  ? `${(Number(v) / 1_000_000).toFixed(1)}M`
-                  : Math.abs(Number(v)) >= 1_000
-                    ? `${(Number(v) / 1_000).toFixed(0)}k`
-                    : String(v)
-              }
-            />
-            <Tooltip
-              contentStyle={chart.tooltip}
-              formatter={(value) => formatUgx(Number(value ?? 0))}
-            />
-            <Legend wrapperStyle={{ color: chart.tickMuted, fontSize: layout.tickSize }} />
-            <Line
-              type="monotone"
-              dataKey="revenue"
-              name="Revenue"
-              stroke={chart.linePrimary}
-              strokeWidth={2.25}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0, fill: chart.linePrimary }}
-            />
-            {showProfit && (
-              <Line
-                type="monotone"
-                dataKey="profit"
-                name="Profit"
-                stroke={chart.lineSecondary}
-                strokeWidth={2}
-                dot={false}
-                strokeDasharray="4 4"
-              />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartBox height={layout.height} ready={layout.ready}>
+      <LineChart data={data} margin={layout.margin}>
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke={chart.grid}
+          strokeOpacity={chart.gridOpacity}
+        />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: layout.tickSize, fill: chart.tickMuted }}
+          axisLine={false}
+          tickLine={false}
+          minTickGap={28}
+          tickFormatter={(v) =>
+            new Date(v).toLocaleDateString('en-UG', { month: 'short', day: 'numeric' })
+          }
+        />
+        <YAxis
+          tick={{ fontSize: layout.tickSize, fill: chart.tickMuted }}
+          width={layout.yWidth}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(v) =>
+            Math.abs(Number(v)) >= 1_000_000
+              ? `${(Number(v) / 1_000_000).toFixed(1)}M`
+              : Math.abs(Number(v)) >= 1_000
+                ? `${(Number(v) / 1_000).toFixed(0)}k`
+                : String(v)
+          }
+        />
+        <Tooltip
+          contentStyle={chart.tooltip}
+          formatter={(value) => formatUgx(Number(value ?? 0))}
+        />
+        <Legend wrapperStyle={{ color: chart.tickMuted, fontSize: layout.tickSize }} />
+        <Line
+          type="monotone"
+          dataKey="revenue"
+          name="Revenue"
+          stroke={chart.linePrimary}
+          strokeWidth={2.25}
+          dot={false}
+          isAnimationActive={false}
+          activeDot={{ r: 4, strokeWidth: 0, fill: chart.linePrimary }}
+        />
+        {showProfit && (
+          <Line
+            type="monotone"
+            dataKey="profit"
+            name="Profit"
+            stroke={chart.lineSecondary}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+            strokeDasharray="4 4"
+          />
+        )}
+      </LineChart>
+    </ChartBox>
   );
 }
 
@@ -162,7 +187,7 @@ export function BarChartPanel({
   if (data.length === 0) return <EmptyChart height={layout.height} />;
 
   return (
-    <ResponsiveContainer width="100%" height={layout.height}>
+    <ChartBox height={layout.height} ready={layout.ready}>
       <BarChart data={data} margin={layout.margin}>
         <CartesianGrid
           strokeDasharray="3 3"
@@ -196,9 +221,14 @@ export function BarChartPanel({
           contentStyle={chart.tooltip}
           formatter={(value) => formatUgx(Number(value ?? 0))}
         />
-        <Bar dataKey={dataKey} fill={color ?? chart.barPrimary} radius={[6, 6, 0, 0]} />
+        <Bar
+          dataKey={dataKey}
+          fill={color ?? chart.barPrimary}
+          radius={[6, 6, 0, 0]}
+          isAnimationActive={false}
+        />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartBox>
   );
 }
 
@@ -215,7 +245,7 @@ export function DonutChartPanel({
   const outer = layout.height < 250 ? 78 : 100;
 
   return (
-    <ResponsiveContainer width="100%" height={layout.height}>
+    <ChartBox height={layout.height} ready={layout.ready}>
       <PieChart>
         <Pie
           data={data}
@@ -227,6 +257,7 @@ export function DonutChartPanel({
           outerRadius={outer}
           paddingAngle={3}
           stroke="none"
+          isAnimationActive={false}
         >
           {data.map((_, index) => (
             <Cell key={index} fill={chart.colors[index % chart.colors.length]} />
@@ -238,7 +269,7 @@ export function DonutChartPanel({
         />
         <Legend wrapperStyle={{ color: chart.tickMuted, fontSize: layout.tickSize }} />
       </PieChart>
-    </ResponsiveContainer>
+    </ChartBox>
   );
 }
 

@@ -10,6 +10,7 @@ import Logo from '@/components/logo';
 import {
   BarChart3,
   ExternalLink,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -29,7 +30,8 @@ export type AdminSection =
   | 'pos'
   | 'inventory'
   | 'fieldSales'
-  | 'reports';
+  | 'reports'
+  | 'messages';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -51,6 +53,7 @@ const navItems: {
   { id: 'inventory', label: 'Inventory', icon: Warehouse, href: '/admin/inventory' },
   { id: 'fieldSales', label: 'Field Sales', icon: Truck, href: '/admin/field-sales' },
   { id: 'orders', label: 'Orders', icon: ShoppingBag, href: '/admin/dashboard?tab=orders' },
+  { id: 'messages', label: 'Messages', icon: Inbox, href: '/admin/messages' },
   { id: 'reports', label: 'Reports', icon: BarChart3, href: '/admin/reports' },
 ];
 
@@ -60,6 +63,7 @@ function resolveActiveSection(pathname: string, activeSection?: AdminSection): A
   if (pathname.startsWith('/admin/inventory')) return 'inventory';
   if (pathname.startsWith('/admin/field-sales')) return 'fieldSales';
   if (pathname.startsWith('/admin/reports')) return 'reports';
+  if (pathname.startsWith('/admin/messages')) return 'messages';
   if (pathname.startsWith('/admin/products')) return 'products';
   if (pathname.startsWith('/admin/orders')) return 'orders';
   if (pathname.includes('tab=analytics')) return 'analytics';
