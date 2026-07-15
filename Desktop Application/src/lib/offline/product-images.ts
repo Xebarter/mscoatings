@@ -24,7 +24,12 @@ export async function resolveProductImageSrc(
   if (url.startsWith('blob:') || url.startsWith('data:')) return url;
 
   const cached = await getCachedProductImage(productId);
-  if (cached?.blob && cached.sourceUrl === url) {
+  const preferCache =
+    url.startsWith('offline-pending:') ||
+    cached?.sourceUrl === url ||
+    Boolean(cached?.sourceUrl?.startsWith('offline-pending:'));
+
+  if (cached?.blob && preferCache) {
     const existing = objectUrls.get(productId);
     if (existing) return existing;
     const objectUrl = URL.createObjectURL(cached.blob);
@@ -32,7 +37,7 @@ export async function resolveProductImageSrc(
     return objectUrl;
   }
 
-  if (!isOnline()) {
+  if (!isOnline() || url.startsWith('offline-pending:')) {
     // Stale cache still better than a broken remote URL offline
     if (cached?.blob) {
       const existing = objectUrls.get(productId);

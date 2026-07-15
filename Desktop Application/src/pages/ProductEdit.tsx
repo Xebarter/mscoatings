@@ -200,26 +200,17 @@ export default function ProductEditPage() {
     setIsSaving(true);
     try {
       let imageUrl = uploadedImageUrl || formData.image.trim();
-      let offlineImageDataUrl: string | null = null;
+      let offlineImageBlob: Blob | null = null;
       let offlineImageType = 'image/jpeg';
 
       if (imageFile && !uploadedImageUrl) {
         if (online) {
           imageUrl = await uploadProductImage(imageFile);
         } else {
-          offlineImageDataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result ?? ''));
-            reader.onerror = () => reject(new Error('Could not read image'));
-            reader.readAsDataURL(imageFile);
-          });
-          if (offlineImageDataUrl.length > 700_000) {
-            throw new Error(
-              'Image is too large to save offline. Use a smaller image or connect to upload.'
-            );
-          }
-          imageUrl = offlineImageDataUrl;
+          // Keep binary blob in IndexedDB (not a huge data URL on the product doc).
+          offlineImageBlob = imageFile;
           offlineImageType = imageFile.type || 'image/jpeg';
+          imageUrl = `offline-pending://${Date.now()}`;
         }
       }
 
@@ -251,9 +242,9 @@ export default function ProductEditPage() {
         category: formData.category.trim() || 'Uncategorized',
         stock: formData.stock,
         image: imageUrl,
-        barcode: barcode || undefined,
-        sku: formData.sku.trim() || undefined,
-        brand: formData.brand.trim() || undefined,
+        ...(barcode ? { barcode } : {}),
+        ...(formData.sku.trim() ? { sku: formData.sku.trim() } : {}),
+        ...(formData.brand.trim() ? { brand: formData.brand.trim() } : {}),
         costPrice: formData.costPrice,
         reorderLevel: formData.reorderLevel,
       };
@@ -271,12 +262,12 @@ export default function ProductEditPage() {
         );
       }
 
-      if (offlineImageDataUrl && savedId) {
+      if (offlineImageBlob && savedId) {
         await enqueueImageUpload({
           id: `product-image-${savedId}`,
           productId: savedId,
-          dataUrl: offlineImageDataUrl,
           contentType: offlineImageType,
+          blob: offlineImageBlob,
         });
       }
 

@@ -13,6 +13,7 @@ import { toFirestoreError, getProductById } from './firestore';
 import { isOnline } from './offline/connectivity';
 import { getDocHybrid, getDocsHybrid, withTimeout } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
+import { LOCAL_MOVEMENTS_RETENTION, LOCAL_SALES_RETENTION } from './offline/limits';
 import {
   enqueuePendingWrite,
   removePendingWrite,
@@ -32,8 +33,8 @@ export interface CreateSaleInput {
   paymentReference?: string;
 }
 
-/** Firestore commit must never hang the POS dialog. */
-const COMMIT_TIMEOUT_MS = 2_500;
+/** Live commit budget — flush path uses a longer timeout in flush-queue. */
+const COMMIT_TIMEOUT_MS = 8_000;
 
 function generateReceiptNumber(): string {
   const now = new Date();
@@ -135,10 +136,10 @@ async function patchLocalProductStock(updates: Array<{ productId: string; stock:
 
 async function prependLocalSale(sale: Sale) {
   const cached = await localGet<{ items: Sale[]; savedAt: number }>('sales');
-  const items = [serializeSaleForStore(sale) as unknown as Sale, ...(cached?.items ?? [])].slice(
-    0,
-    200
-  );
+  const items = [
+    serializeSaleForStore(sale) as unknown as Sale,
+    ...(cached?.items ?? []),
+  ].slice(0, LOCAL_SALES_RETENTION);
   await localSet('sales', { items, savedAt: Date.now() });
 }
 
@@ -167,7 +168,7 @@ async function prependLocalMovements(movements: StockMovement[]) {
   const items = [
     ...movements.map((m) => serializeMovementForStore(m) as unknown as StockMovement),
     ...(cached?.items ?? []),
-  ].slice(0, 200);
+  ].slice(0, LOCAL_MOVEMENTS_RETENTION);
   await localSet('stockMovements', { items, savedAt: Date.now() });
 }
 
@@ -317,6 +318,7 @@ async function commitSaleToFirestore(args: {
   stockUpdates: Array<{ productId: string; stock: number; name: string }>;
   movements: StockMovement[];
   inputQuantities: number[];
+  timeoutMs?: number;
 }): Promise<void> {
   const batch = writeBatch(db);
 
@@ -329,16 +331,32 @@ async function commitSaleToFirestore(args: {
     );
   }
 
-  batch.set(doc(db, 'sales', args.saleId), args.salePayload);
+  // Never write the local `id` field into the document body.
+  const { id: _ignoredId, ...saleDoc } = args.salePayload as Omit<Sale, 'id'> & {
+    id?: string;
+  };
+  batch.set(doc(db, 'sales', args.saleId), {
+    ...saleDoc,
+    createdAt:
+      args.salePayload.createdAt instanceof Timestamp
+        ? args.salePayload.createdAt
+        : revivePlainTimestamp(args.salePayload.createdAt),
+  });
 
   for (const movement of args.movements) {
     const { id, ...rest } = movement;
-    batch.set(doc(db, 'stockMovements', id), rest);
+    batch.set(doc(db, 'stockMovements', id), {
+      ...rest,
+      createdAt:
+        rest.createdAt instanceof Timestamp
+          ? rest.createdAt
+          : revivePlainTimestamp(rest.createdAt),
+    });
   }
 
   await withTimeout(
     batch.commit(),
-    COMMIT_TIMEOUT_MS,
+    args.timeoutMs ?? COMMIT_TIMEOUT_MS,
     'Firestore commit timed out'
   );
 }
@@ -414,28 +432,26 @@ export async function createSale(input: CreateSaleInput): Promise<Sale> {
     movements: movements.map(serializeMovementForStore),
   };
 
-  const tryFirestoreSync = async () => {
-    await commitSaleToFirestore({
-      saleId: sale.id,
-      salePayload,
-      stockUpdates,
-      movements,
-      inputQuantities: input.items.map((i) => i.quantity),
-    });
-    await removePendingWrite(pending.id);
-  };
+  // Always enqueue first so reconnect can flush even if this process dies mid-commit.
+  await enqueuePendingWrite(pending);
 
-  if (!isOnline()) {
-    await enqueuePendingWrite(pending);
-    // Best-effort local Firestore queue (when disableNetwork is active this resolves fast)
-    void tryFirestoreSync().catch(() => undefined);
-  } else {
+  if (isOnline()) {
     try {
-      await tryFirestoreSync();
+      await commitSaleToFirestore({
+        saleId: sale.id,
+        salePayload,
+        stockUpdates,
+        movements,
+        inputQuantities: input.items.map((i) => i.quantity),
+      });
+      await removePendingWrite(pending.id);
     } catch {
-      // Lie-fi or slow link — sale already saved locally; sync later
-      await enqueuePendingWrite(pending);
+      const { requestSync } = await import('./offline/sync');
+      requestSync('sale-create-retry', 2_000);
     }
+  } else {
+    const { requestSync } = await import('./offline/sync');
+    requestSync('sale-create-offline');
   }
 
   logDesktopActivity({
@@ -459,25 +475,62 @@ export async function createSale(input: CreateSaleInput): Promise<Sale> {
 export async function flushOnePendingSale(entry: PendingSaleCreate | PendingSaleVoid): Promise<void> {
   if (entry.kind === 'sale.create') {
     const sale = entry.sale as unknown as Sale;
-    const createdAt = revivePlainTimestamp(sale.createdAt);
-    const { id, createdAt: _c, ...rest } = {
-      ...sale,
-      createdAt,
+    const authEmail = auth.currentUser?.email?.toLowerCase();
+    if (!authEmail) {
+      throw new Error('Sign in to sync offline sales.');
+    }
+    const saleEmail = String(sale.cashierEmail ?? '').toLowerCase();
+    if (saleEmail && saleEmail !== authEmail) {
+      throw new Error(
+        `Sale was recorded by ${saleEmail}. Sign in as that user to sync it.`
+      );
+    }
+
+    // Must keep createdAt — rules require it as a Firestore timestamp.
+    // (A prior bug stripped it via destructuring, which looked like permission-denied.)
+    const { id, ...rest } = sale;
+    const salePayload: Omit<Sale, 'id'> = {
+      ...(rest as Omit<Sale, 'id'>),
+      createdAt: revivePlainTimestamp(sale.createdAt),
+      cashierEmail: authEmail,
+      cashierId: auth.currentUser!.uid,
+      status: 'completed',
     };
-    const movements = (entry.movements as unknown as StockMovement[]).map((m) => ({
-      ...m,
-      createdAt: revivePlainTimestamp(m.createdAt),
-    }));
-    await commitSaleToFirestore({
-      saleId: id,
-      salePayload: rest as Omit<Sale, 'id'>,
-      stockUpdates: entry.stockUpdates.map((u) => ({
-        ...u,
-        name: '',
-      })),
-      movements,
-      inputQuantities: [],
+
+    const movements = (entry.movements as unknown as StockMovement[]).map((m) => {
+      const { id: movementId, ...movementRest } = m;
+      return {
+        ...movementRest,
+        id: movementId,
+        createdAt: revivePlainTimestamp(m.createdAt),
+        performedBy: authEmail,
+      } as StockMovement;
     });
+
+    try {
+      await commitSaleToFirestore({
+        saleId: id,
+        salePayload,
+        stockUpdates: entry.stockUpdates.map((u) => ({
+          ...u,
+          name: '',
+        })),
+        movements,
+        inputQuantities: [],
+        timeoutMs: 20_000,
+      });
+    } catch (error) {
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code: string }).code)
+          : '';
+      if (code === 'permission-denied') {
+        throw new Error(
+          'Firestore denied this sale sync. Confirm you are an active staff user and try again.'
+        );
+      }
+      throw error;
+    }
     await removePendingWrite(entry.id);
     return;
   }
@@ -546,28 +599,31 @@ export async function voidSale(
       movementIds,
     };
 
-    const tryFirestore = async () => {
-      const batch = writeBatch(db);
-      for (const update of stockUpdates) {
-        batch.set(doc(db, 'products', update.productId), { stock: update.stock }, { merge: true });
-      }
-      for (const movementId of movementIds) {
-        batch.delete(doc(db, 'stockMovements', movementId));
-      }
-      batch.delete(doc(db, 'sales', saleId));
-      await withTimeout(batch.commit(), COMMIT_TIMEOUT_MS);
-      await removePendingWrite(pending.id);
-    };
+    await enqueuePendingWrite(pending);
 
-    if (!isOnline()) {
-      await enqueuePendingWrite(pending);
-      void tryFirestore().catch(() => undefined);
-    } else {
+    if (isOnline()) {
       try {
-        await tryFirestore();
+        const batch = writeBatch(db);
+        for (const update of stockUpdates) {
+          batch.set(
+            doc(db, 'products', update.productId),
+            { stock: update.stock },
+            { merge: true }
+          );
+        }
+        for (const movementId of movementIds) {
+          batch.delete(doc(db, 'stockMovements', movementId));
+        }
+        batch.delete(doc(db, 'sales', saleId));
+        await withTimeout(batch.commit(), COMMIT_TIMEOUT_MS);
+        await removePendingWrite(pending.id);
       } catch {
-        await enqueuePendingWrite(pending);
+        const { requestSync } = await import('./offline/sync');
+        requestSync('sale-void-retry', 2_000);
       }
+    } else {
+      const { requestSync } = await import('./offline/sync');
+      requestSync('sale-void-offline');
     }
 
     logDesktopActivity({

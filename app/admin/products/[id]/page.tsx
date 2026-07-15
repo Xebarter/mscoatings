@@ -236,13 +236,15 @@ export default function EditProductPage() {
         category: formData.category.trim() || 'Uncategorized',
         stock: formData.stock,
         image: imageUrl,
-        barcode: barcode || undefined,
-        sku: formData.sku.trim() || undefined,
-        brand: formData.brand.trim() || undefined,
-        paintType: formData.paintType.trim() || undefined,
-        colourCode: formData.colourCode.trim() || undefined,
-        sizeVolume: formData.sizeVolume.trim() || undefined,
-        packagingUnit: formData.packagingUnit.trim() || undefined,
+        ...(barcode ? { barcode } : {}),
+        ...(formData.sku.trim() ? { sku: formData.sku.trim() } : {}),
+        ...(formData.brand.trim() ? { brand: formData.brand.trim() } : {}),
+        ...(formData.paintType.trim() ? { paintType: formData.paintType.trim() } : {}),
+        ...(formData.colourCode.trim() ? { colourCode: formData.colourCode.trim() } : {}),
+        ...(formData.sizeVolume.trim() ? { sizeVolume: formData.sizeVolume.trim() } : {}),
+        ...(formData.packagingUnit.trim()
+          ? { packagingUnit: formData.packagingUnit.trim() }
+          : {}),
         costPrice: formData.costPrice,
         reorderLevel: formData.reorderLevel,
       };

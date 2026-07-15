@@ -115,7 +115,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const docRef = doc(db, 'products', id);
-    await updateDoc(docRef, updateData);
+    const clean: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updateData as Record<string, unknown>)) {
+      if (value !== undefined) clean[key] = value;
+    }
+    await updateDoc(docRef, clean);
 
     revalidateCatalog(id);
 

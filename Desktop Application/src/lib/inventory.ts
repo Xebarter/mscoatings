@@ -10,6 +10,7 @@ import { toFirestoreError, getProductById } from './firestore';
 import { isOnline } from './offline/connectivity';
 import { getDocHybrid, withTimeout } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
+import { LOCAL_MOVEMENTS_RETENTION } from './offline/limits';
 import { syncDocOps } from './offline/flush-queue';
 import { serializeDeep, stampTimestamp } from './offline/pending-writes';
 import { logDesktopActivity } from './staff-activity';
@@ -119,7 +120,7 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
           createdAt: stampTimestamp(createdAt) as unknown as StockMovement['createdAt'],
         },
         ...(movementsCache?.items ?? []),
-      ].slice(0, 200),
+      ].slice(0, LOCAL_MOVEMENTS_RETENTION),
       savedAt: Date.now(),
     });
 

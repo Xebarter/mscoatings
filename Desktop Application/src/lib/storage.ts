@@ -47,26 +47,31 @@ export async function uploadProductImage(
   return downloadUrl;
 }
 
-/** Upload a previously saved offline data URL when reconnecting. */
+/** Upload a previously saved offline blob (or legacy data URL) when reconnecting. */
+export async function uploadProductImageBlob(
+  blob: Blob,
+  contentType: string,
+  productId: string
+): Promise<string> {
+  if (blob.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error('Queued image is too large to upload');
+  }
+  const type = contentType || blob.type || 'image/jpeg';
+  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
+  const path = `products/${productId}-${Date.now()}.${ext}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, blob, {
+    contentType: type,
+    cacheControl: 'public,max-age=31536000',
+  });
+  return getDownloadURL(storageRef);
+}
+
+/** @deprecated Prefer uploadProductImageBlob — kept for legacy queued data URLs. */
 export async function uploadProductImageFromDataUrl(
   dataUrl: string,
   contentType: string,
   productId: string
 ): Promise<string> {
-  const blob = dataUrlToBlob(dataUrl, contentType);
-  if (blob.size > MAX_IMAGE_SIZE_BYTES) {
-    throw new Error('Queued image is too large to upload');
-  }
-  const ext = contentType.includes('png')
-    ? 'png'
-    : contentType.includes('webp')
-      ? 'webp'
-      : 'jpg';
-  const path = `products/${productId}-${Date.now()}.${ext}`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob, {
-    contentType: contentType || 'image/jpeg',
-    cacheControl: 'public,max-age=31536000',
-  });
-  return getDownloadURL(storageRef);
+  return uploadProductImageBlob(dataUrlToBlob(dataUrl, contentType), contentType, productId);
 }

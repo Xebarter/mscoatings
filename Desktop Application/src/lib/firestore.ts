@@ -39,6 +39,15 @@ function toFirestoreError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Firestore request failed');
 }
 
+/** Firestore rejects `undefined` field values — omit them instead. */
+function omitUndefinedFields<T extends Record<string, unknown>>(data: T): Partial<T> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out as Partial<T>;
+}
+
 async function ensureAccess() {
   await ensureFirestoreAuthReady();
 }
@@ -283,12 +292,12 @@ export async function addProduct(
       }
     }
     const createdAt = Timestamp.now();
-    const payload = {
+    const payload = omitUndefinedFields({
       ...productData,
       reorderLevel: productData.reorderLevel ?? 5,
       costPrice: productData.costPrice ?? 0,
       createdAt,
-    };
+    }) as Omit<Product, 'id'>;
     const docRef = doc(productsCollection);
     const product: Product = { id: docRef.id, ...payload };
     await patchLocalProducts((items) => [...items, product]);
@@ -345,6 +354,10 @@ export async function updateProduct(
       items.map((p) => (p.id === productId ? { ...p, ...updates } : p))
     );
 
+    const cleanUpdates = omitUndefinedFields(
+      updates as Record<string, unknown>
+    ) as Partial<Omit<Product, 'id' | 'createdAt'>>;
+
     const { syncDocOps } = await import('./offline/flush-queue');
     const { serializeDeep } = await import('./offline/pending-writes');
     await syncDocOps({
@@ -355,7 +368,7 @@ export async function updateProduct(
           op: 'set',
           collection: 'products',
           docId: productId,
-          data: serializeDeep(updates) as Record<string, unknown>,
+          data: serializeDeep(cleanUpdates) as Record<string, unknown>,
           merge: true,
         },
       ],
@@ -629,8 +642,8 @@ export async function warmOfflineCache(): Promise<void> {
   const results = await Promise.allSettled([
     getProducts(),
     getOrders(),
-    listSales(500),
-    getStockMovements(200),
+    listSales(2_000),
+    getStockMovements(2_000),
     getFieldAgents(),
     getFieldPicks(),
     getCustomers(),

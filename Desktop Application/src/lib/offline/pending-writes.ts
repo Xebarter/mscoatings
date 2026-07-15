@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import { localGet, localSet, type SnapshotKey } from './local-store';
+import { localGet, localSetStrict, type SnapshotKey } from './local-store';
 
 export type PendingSaleCreate = {
   id: string;
@@ -8,6 +8,9 @@ export type PendingSaleCreate = {
   sale: Record<string, unknown>;
   stockUpdates: Array<{ productId: string; stock: number }>;
   movements: Array<Record<string, unknown>>;
+  attempts?: number;
+  lastError?: string | null;
+  lastAttemptAt?: number;
 };
 
 export type PendingSaleVoid = {
@@ -17,9 +20,11 @@ export type PendingSaleVoid = {
   saleId: string;
   stockUpdates: Array<{ productId: string; stock: number }>;
   movementIds: string[];
+  attempts?: number;
+  lastError?: string | null;
+  lastAttemptAt?: number;
 };
 
-/** Generic Firestore batch ops (set/delete) for inventory, orders, field sales, products, refunds. */
 export type PendingDocOp =
   | {
       op: 'set';
@@ -48,6 +53,9 @@ export type PendingBatchWrite = {
     | 'batch';
   createdAt: number;
   ops: PendingDocOp[];
+  attempts?: number;
+  lastError?: string | null;
+  lastAttemptAt?: number;
 };
 
 export type PendingImageUpload = {
@@ -55,8 +63,14 @@ export type PendingImageUpload = {
   kind: 'product.image';
   createdAt: number;
   productId: string;
-  dataUrl: string;
   contentType: string;
+  /** IndexedDB key in pendingImages blob store (preferred). */
+  blobId?: string;
+  /** Legacy fallback for older queued entries. */
+  dataUrl?: string;
+  attempts?: number;
+  lastError?: string | null;
+  lastAttemptAt?: number;
 };
 
 export type PendingWrite =
@@ -67,28 +81,105 @@ export type PendingWrite =
 
 const KEY = 'pendingWrites' as SnapshotKey;
 
+type QueueListener = (count: number) => void;
+const queueListeners = new Set<QueueListener>();
+
+function notifyQueue(count: number) {
+  for (const listener of queueListeners) {
+    listener(count);
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('ms-offline-queue', { detail: { count } })
+    );
+  }
+}
+
+export function subscribePendingQueue(listener: QueueListener): () => void {
+  queueListeners.add(listener);
+  void pendingWriteCount().then(listener);
+  return () => {
+    queueListeners.delete(listener);
+  };
+}
+
 export async function listPendingWrites(): Promise<PendingWrite[]> {
   const cached = await localGet<{ items: PendingWrite[] }>(KEY);
   return cached?.items ?? [];
 }
 
+async function persistQueue(items: PendingWrite[]): Promise<void> {
+  await localSetStrict(KEY, { items, savedAt: Date.now() });
+  notifyQueue(items.length);
+}
+
 export async function enqueuePendingWrite(entry: PendingWrite): Promise<void> {
   const items = await listPendingWrites();
-  // Replace same id if re-queued
-  const next = [...items.filter((w) => w.id !== entry.id), entry];
-  await localSet(KEY, { items: next, savedAt: Date.now() });
+  const existing = items.find((w) => w.id === entry.id);
+  const nextEntry: PendingWrite = {
+    ...entry,
+    attempts: existing?.attempts ?? entry.attempts ?? 0,
+    lastError: existing?.lastError ?? entry.lastError ?? null,
+    lastAttemptAt: existing?.lastAttemptAt ?? entry.lastAttemptAt,
+  };
+  const next = [...items.filter((w) => w.id !== entry.id), nextEntry];
+  await persistQueue(next);
 }
 
 export async function removePendingWrite(id: string): Promise<void> {
   const items = await listPendingWrites();
-  await localSet(KEY, {
-    items: items.filter((w) => w.id !== id),
-    savedAt: Date.now(),
-  });
+  await persistQueue(items.filter((w) => w.id !== id));
+}
+
+export async function markPendingAttempt(
+  id: string,
+  error: string | null
+): Promise<void> {
+  const items = await listPendingWrites();
+  const next = items.map((w) =>
+    w.id === id
+      ? {
+          ...w,
+          attempts: (w.attempts ?? 0) + 1,
+          lastError: error,
+          lastAttemptAt: Date.now(),
+        }
+      : w
+  );
+  await persistQueue(next);
 }
 
 export async function pendingWriteCount(): Promise<number> {
   return (await listPendingWrites()).length;
+}
+
+export function pendingKindLabel(kind: PendingWrite['kind']): string {
+  switch (kind) {
+    case 'sale.create':
+      return 'Sale';
+    case 'sale.void':
+      return 'Void';
+    case 'sale.refund':
+      return 'Refund';
+    case 'inventory.adjust':
+      return 'Stock adjustment';
+    case 'order.status':
+      return 'Order update';
+    case 'product.upsert':
+      return 'Product save';
+    case 'product.delete':
+      return 'Product delete';
+    case 'product.image':
+      return 'Image upload';
+    case 'field.pick.create':
+      return 'Field pick';
+    case 'field.pick.submit':
+      return 'Field report';
+    case 'field.agent.upsert':
+      return 'Field agent';
+    default:
+      return 'Change';
+  }
 }
 
 export function stampTimestamp(ts: Timestamp = Timestamp.now()) {
@@ -131,6 +222,7 @@ export function serializeDeep(value: unknown): unknown {
   if (!value || typeof value !== 'object') return value;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined) continue;
     out[k] = serializeDeep(v);
   }
   return out;

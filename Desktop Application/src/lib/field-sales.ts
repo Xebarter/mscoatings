@@ -26,6 +26,11 @@ import {
 import { isOnline } from './offline/connectivity';
 import { getDocHybrid, withTimeout } from './offline/firestore-reads';
 import { localGet, localSet } from './offline/local-store';
+import {
+  LOCAL_FIELD_PICKS_RETENTION,
+  LOCAL_MOVEMENTS_RETENTION,
+  LOCAL_SALES_RETENTION,
+} from './offline/limits';
 import { syncDocOps } from './offline/flush-queue';
 import {
   serializeDeep,
@@ -132,7 +137,7 @@ async function patchLocalProductStock(
 
 async function patchLocalFieldPicks(mutator: (items: FieldPick[]) => FieldPick[]) {
   const cached = await localGet<{ items: FieldPick[]; savedAt: number }>('fieldPicks');
-  const items = mutator(cached?.items ?? []);
+  const items = mutator(cached?.items ?? []).slice(0, LOCAL_FIELD_PICKS_RETENTION);
   await localSet('fieldPicks', { items, savedAt: Date.now() });
 }
 
@@ -144,7 +149,7 @@ async function patchLocalFieldAgents(mutator: (items: FieldAgent[]) => FieldAgen
 
 async function prependLocalSale(sale: Sale) {
   const cached = await localGet<{ items: Sale[]; savedAt: number }>('sales');
-  const items = [sale, ...(cached?.items ?? [])].slice(0, 200);
+  const items = [sale, ...(cached?.items ?? [])].slice(0, LOCAL_SALES_RETENTION);
   await localSet('sales', { items, savedAt: Date.now() });
 }
 
@@ -154,7 +159,10 @@ async function prependLocalMovements(movements: StockMovement[]) {
     'stockMovements'
   );
   await localSet('stockMovements', {
-    items: [...movements, ...(cached?.items ?? [])].slice(0, 200),
+    items: [...movements, ...(cached?.items ?? [])].slice(
+      0,
+      LOCAL_MOVEMENTS_RETENTION
+    ),
     savedAt: Date.now(),
   });
 }

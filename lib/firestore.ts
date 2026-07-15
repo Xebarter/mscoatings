@@ -107,16 +107,28 @@ async function ensureAdminFirestoreAccess() {
   await ensureFirestoreAuthReady();
 }
 
+/** Firestore rejects `undefined` field values — omit them instead. */
+function omitUndefinedFields<T extends Record<string, unknown>>(data: T): Partial<T> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out as Partial<T>;
+}
+
 // Product functions
 export async function addProduct(productData: Omit<Product, 'id' | 'createdAt'>) {
   try {
     await ensureAdminFirestoreAccess();
-    const docRef = await addDoc(productsCollection, {
-      ...productData,
-      reorderLevel: productData.reorderLevel ?? 5,
-      costPrice: productData.costPrice ?? 0,
-      createdAt: Timestamp.now(),
-    });
+    const docRef = await addDoc(
+      productsCollection,
+      omitUndefinedFields({
+        ...productData,
+        reorderLevel: productData.reorderLevel ?? 5,
+        costPrice: productData.costPrice ?? 0,
+        createdAt: Timestamp.now(),
+      }) as Omit<Product, 'id'>
+    );
     logClientActivity({
       action: 'product.create',
       summary: `Created product ${productData.name}`,
@@ -173,7 +185,10 @@ export async function updateProduct(
   try {
     await ensureAdminFirestoreAccess();
     const productRef = doc(productsCollection, productId);
-    await updateDoc(productRef, updates);
+    await updateDoc(
+      productRef,
+      omitUndefinedFields(updates as Record<string, unknown>)
+    );
     logClientActivity({
       action: 'product.update',
       summary: `Updated product ${updates.name ?? productId}`,
