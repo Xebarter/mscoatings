@@ -5,7 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Package,
-  ScanBarcode,
+  ShoppingCart,
   ShoppingBag,
   TrendingUp,
   Truck,
@@ -66,7 +66,7 @@ export default function DashboardPage() {
   );
 
   const quickLinks = [
-    { to: '/pos', label: 'Open POS', icon: ScanBarcode, color: 'bg-blue-600' },
+    { to: '/pos', label: 'Open POS', icon: ShoppingCart, color: 'bg-blue-600' },
     { to: '/inventory', label: 'Inventory', icon: Warehouse, color: 'bg-violet-600' },
     { to: '/field-sales', label: 'Field Sales', icon: Truck, color: 'bg-emerald-600' },
     { to: '/products', label: 'Products', icon: Package, color: 'bg-amber-600' },
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           label="Today's Sales"
           value={dayReport ? String(dayReport.totalSales) : '—'}
           hint="Completed transactions"
-          icon={ScanBarcode}
+          icon={ShoppingCart}
         />
       </div>
 

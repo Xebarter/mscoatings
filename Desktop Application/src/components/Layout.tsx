@@ -12,7 +12,7 @@ import {
   LogOut,
   Package,
   Receipt,
-  ScanBarcode,
+  ShoppingCart,
   ShoppingBag,
   Truck,
   Warehouse,
@@ -38,7 +38,7 @@ const navItems: {
   permission?: keyof Permissions;
 }[] = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/pos', label: 'Point of Sale', icon: ScanBarcode, permission: 'accessPos' },
+  { to: '/pos', label: 'Point of Sale', icon: ShoppingCart, permission: 'accessPos' },
   { to: '/products', label: 'Products', icon: Package },
   { to: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'adjustStock' },
   { to: '/field-sales', label: 'Field Sales', icon: Truck, permission: 'manageFieldSales' },

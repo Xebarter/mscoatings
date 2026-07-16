@@ -175,9 +175,6 @@ export default function FieldPickDetailPage() {
                           <p className="font-medium text-slate-900">
                             {item.productName}
                           </p>
-                          <p className="text-xs text-slate-500">
-                            {item.barcode || 'No barcode'}
-                          </p>
                         </td>
                         <td className="px-4 py-3.5 text-center font-semibold">
                           {item.quantityPicked}

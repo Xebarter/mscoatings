@@ -4,6 +4,11 @@ import type { SeoProduct } from '@/lib/seo/json-ld';
 
 const productsCollection = collection(db, 'products');
 
+/** Missing/undefined means MS product (legacy docs stay visible on the storefront). */
+export function isMsStorefrontProduct(data: { msProduct?: boolean }): boolean {
+  return data.msProduct !== false;
+}
+
 function mapProductDoc(
   id: string,
   data: Record<string, unknown>
@@ -24,6 +29,9 @@ export async function getAllProductsServer(): Promise<SeoProduct[]> {
     const snapshot = await getDocs(productsCollection);
 
     return snapshot.docs
+      .filter((productDoc) =>
+        isMsStorefrontProduct(productDoc.data() as { msProduct?: boolean })
+      )
       .map((productDoc) => mapProductDoc(productDoc.id, productDoc.data()))
       .filter((product) => product.name && product.image);
   } catch (error) {
@@ -40,7 +48,10 @@ export async function getProductByIdServer(
 
     if (!snapshot.exists()) return null;
 
-    const product = mapProductDoc(snapshot.id, snapshot.data());
+    const data = snapshot.data();
+    if (!isMsStorefrontProduct(data as { msProduct?: boolean })) return null;
+
+    const product = mapProductDoc(snapshot.id, data);
     if (!product.name) return null;
 
     return product;

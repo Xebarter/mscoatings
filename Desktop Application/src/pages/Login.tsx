@@ -170,7 +170,7 @@ export default function LoginPage() {
     );
   }
 
-  if (user && hasAccess) {
+  if (hasAccess) {
     return <Navigate to="/" replace />;
   }
 

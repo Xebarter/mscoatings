@@ -1,14 +1,14 @@
 'use client';
 
-import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import { BRAND_ASSETS } from '@/lib/brand';
 import { formatUgx } from '@/lib/currency';
 import type { Sale } from '@/lib/erp-types';
 import {
   formatReceiptDate,
   getPaymentLabel,
   getSaleDate,
+  RECEIPT_BUSINESS,
 } from '@/lib/receipt-document';
-import { BUSINESS_INFO } from '@/lib/seo/business';
 
 interface ReceiptProps {
   sale: Sale;
@@ -21,22 +21,36 @@ function formatCashier(email: string): string {
 
 export default function Receipt({ sale }: ReceiptProps) {
   const date = getSaleDate(sale.createdAt);
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.mscoatings.shop'
-  ).replace(/^https?:\/\//, '');
 
   return (
     <div className="mx-auto w-full max-w-[80mm] bg-white px-4 py-5 font-sans text-[11px] leading-snug text-slate-900">
       <div className="text-center">
-        <h2 className="text-[15px] font-bold uppercase tracking-[0.14em] text-slate-900">
-          {BRAND_NAME}
+        <img
+          src={BRAND_ASSETS.logo}
+          alt={RECEIPT_BUSINESS.tradingName}
+          width={48}
+          height={48}
+          className="mx-auto mb-1.5 h-12 w-12 rounded-lg object-contain"
+        />
+        <h2 className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-slate-900">
+          {RECEIPT_BUSINESS.tradingName}
         </h2>
-        <p className="mt-0.5 text-[9px] tracking-wide text-slate-500">
-          {BRAND_TAGLINE}
+        <p className="mt-0.5 text-[9px] font-bold tracking-wide text-slate-800">
+          {RECEIPT_BUSINESS.brandLine}
         </p>
-        <p className="mt-1 text-[9px] text-slate-400">
-          Kampala, Uganda · {BUSINESS_INFO.telephoneDisplay}
+        <p className="mt-1.5 text-[8.5px] leading-snug text-slate-600">
+          {RECEIPT_BUSINESS.location}
         </p>
+        <p className="mt-1 text-[7.5px] font-semibold uppercase leading-snug tracking-wide text-slate-500">
+          {RECEIPT_BUSINESS.distributors}
+        </p>
+        <p className="mt-1.5 text-[8.5px] text-slate-600">{RECEIPT_BUSINESS.postal}</p>
+        <div className="mt-1 text-[8.5px] font-semibold leading-relaxed text-slate-900">
+          <p>Tel:</p>
+          {RECEIPT_BUSINESS.phones.map((phone) => (
+            <p key={phone}>{phone}</p>
+          ))}
+        </div>
       </div>
 
       <hr className="my-3 border-0 border-t border-dashed border-slate-300" />
@@ -145,7 +159,7 @@ export default function Receipt({ sale }: ReceiptProps) {
           Thank you for your business
         </p>
         <p>Please retain this receipt for your records.</p>
-        <p className="mt-1">{siteUrl}</p>
+        <p className="mt-1">{RECEIPT_BUSINESS.siteUrl}</p>
       </div>
     </div>
   );

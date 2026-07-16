@@ -44,7 +44,6 @@ export default function ProductsPage() {
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
-        p.barcode?.toLowerCase().includes(q) ||
         p.sku?.toLowerCase().includes(q)
     );
   }, [products, search]);
@@ -87,7 +86,6 @@ export default function ProductsPage() {
               <tr>
                 <th className="px-5 py-3 font-semibold text-slate-600">Product</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Category</th>
-                <th className="px-5 py-3 font-semibold text-slate-600">Barcode</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Price</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Stock</th>
                 <th className="px-5 py-3 font-semibold text-slate-600">Actions</th>
@@ -121,9 +119,6 @@ export default function ProductsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-slate-600">{product.category}</td>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-500">
-                      {product.barcode ?? '—'}
-                    </td>
                     <td className="px-5 py-4 font-semibold text-slate-900">
                       {formatUgx(product.price)}
                     </td>

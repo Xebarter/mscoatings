@@ -1,4 +1,7 @@
-import { buildReceiptPrintDocument } from '@/lib/receipt-document';
+import {
+  buildReceiptPrintDocument,
+  getReceiptLogoSrc,
+} from '@/lib/receipt-document';
 import type { Sale } from '@/lib/erp-types';
 
 export function printSaleReceipt(sale: Sale): void {
@@ -18,7 +21,7 @@ export function printSaleReceipt(sale: Sale): void {
   }
 
   printDocument.open();
-  printDocument.write(buildReceiptPrintDocument(sale));
+  printDocument.write(buildReceiptPrintDocument(sale, getReceiptLogoSrc()));
   printDocument.close();
 
   let cleanedUp = false;

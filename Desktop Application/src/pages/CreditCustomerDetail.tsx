@@ -150,7 +150,6 @@ export default function CreditCustomerDetailPage() {
         if (!q) return true;
         return (
           p.name.toLowerCase().includes(q) ||
-          p.barcode?.toLowerCase().includes(q) ||
           p.sku?.toLowerCase().includes(q)
         );
       })
@@ -714,7 +713,7 @@ export default function CreditCustomerDetailPage() {
                           type="search"
                           value={productSearch}
                           onChange={(e) => setProductSearch(e.target.value)}
-                          placeholder="Search by name, SKU or barcode…"
+                          placeholder="Search by name or SKU…"
                           className="w-full rounded-xl border border-slate-200 py-3 pl-9 pr-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
                       </div>

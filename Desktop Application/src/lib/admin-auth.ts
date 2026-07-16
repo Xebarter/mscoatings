@@ -64,6 +64,13 @@ export async function getOfflineSession(): Promise<OfflineSession | null> {
   return localGet<OfflineSession>('session');
 }
 
+/** Refresh session timestamp so a trusted desktop login stays durable. */
+export async function touchOfflineSession(): Promise<void> {
+  const session = await getOfflineSession();
+  if (!session) return;
+  await localSet('session', { ...session, savedAt: Date.now() });
+}
+
 /**
  * Ensures auth is usable for Firestore.
  * Online: refreshes ID token if needed.
@@ -87,14 +94,34 @@ export async function ensureFirestoreAuthReady(): Promise<void> {
     try {
       await currentUser.getIdToken(false);
     } catch {
+      // Don't force sign-out; local/offline work can continue with trusted session.
+      const session = await getOfflineSession();
+      if (session?.accessStatus === 'super_admin' || session?.accessStatus === 'staff') {
+        return;
+      }
       throw new Error('Could not refresh authentication. Please sign in again.');
     }
     return;
   }
 
+  // No Firebase user yet — trusted desktop session is enough for local ops.
+  const existing = await getOfflineSession();
+  if (
+    existing?.accessStatus === 'super_admin' ||
+    existing?.accessStatus === 'staff'
+  ) {
+    if (!isOnline()) return;
+    // Online without Auth: wait briefly for persistence restore, then allow local ops.
+  }
+
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       unsubscribe();
+      const session = await getOfflineSession();
+      if (session?.accessStatus === 'super_admin' || session?.accessStatus === 'staff') {
+        resolve();
+        return;
+      }
       reject(
         new Error(
           isOnline()
@@ -115,6 +142,11 @@ export async function ensureFirestoreAuthReady(): Promise<void> {
         resolve();
       } catch (error) {
         if (!isOnline()) {
+          resolve();
+          return;
+        }
+        const session = await getOfflineSession();
+        if (session?.accessStatus === 'super_admin' || session?.accessStatus === 'staff') {
           resolve();
           return;
         }

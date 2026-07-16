@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   initializeAuth,
+  indexedDBLocalPersistence,
   browserLocalPersistence,
   browserPopupRedirectResolver,
 } from 'firebase/auth';
@@ -40,16 +41,23 @@ export const db = initializeFirestore(app, {
 
 /**
  * Electron needs an explicit popup redirect resolver for signInWithPopup.
- * Without it Firebase throws auth/argument-error.
+ * Prefer IndexedDB auth persistence (survives restarts better than localStorage).
  */
 function createAuth() {
   try {
     return initializeAuth(app, {
-      persistence: browserLocalPersistence,
+      persistence: indexedDBLocalPersistence,
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
-    return getAuth(app);
+    try {
+      return initializeAuth(app, {
+        persistence: browserLocalPersistence,
+        popupRedirectResolver: browserPopupRedirectResolver,
+      });
+    } catch {
+      return getAuth(app);
+    }
   }
 }
 

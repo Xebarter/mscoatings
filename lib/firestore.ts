@@ -41,6 +41,8 @@ export interface Product {
   /** Price used when field agents pick products; defaults to `price`. */
   fieldPickPrice?: number;
   reorderLevel?: number;
+  /** When false, hidden from shop/home; still available in admin/POS. Defaults to true. */
+  msProduct?: boolean;
 }
 
 // Order types
@@ -129,6 +131,7 @@ export async function addProduct(productData: Omit<Product, 'id' | 'createdAt'>)
         reorderLevel: productData.reorderLevel ?? 5,
         costPrice: productData.costPrice ?? 0,
         fieldPickPrice: productData.fieldPickPrice ?? productData.price,
+        msProduct: productData.msProduct ?? true,
         createdAt: Timestamp.now(),
       }) as Omit<Product, 'id'>
     );

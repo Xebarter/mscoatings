@@ -1,7 +1,6 @@
-import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import { BRAND_ASSETS, BRAND_NAME } from '@/lib/brand';
 import { formatUgx } from '@/lib/currency';
 import type { Sale } from '@/lib/erp-types';
-import { BUSINESS_INFO } from '@/lib/seo/business';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Cash',
@@ -11,6 +10,25 @@ const PAYMENT_LABELS: Record<string, string> = {
   online: 'Online',
   credit: 'Credit / On Account',
 };
+
+/** Trading company details printed on POS receipts */
+export const RECEIPT_BUSINESS = {
+  tradingName: 'NEW PAINT SOLUTION',
+  brandLine: BRAND_NAME,
+  location: 'Located in Ndeeba Opp. ZMK near Ndeeba Railway Gate',
+  distributors:
+    'DISTRIBUTORS OF M.S COATINGS PRODUCTS and KAPCI AUTOMOTIVE PRODUCTS',
+  postal: 'P.O. Box Kampala',
+  phones: ['0776 656935', '0709 805 895', '0707 254 207'],
+  siteUrl: 'www.mscoatings.shop',
+} as const;
+
+export function getReceiptLogoSrc(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${BRAND_ASSETS.logo}`;
+  }
+  return BRAND_ASSETS.logo;
+}
 
 export function getSaleDate(createdAt: Sale['createdAt']): Date {
   if (!createdAt) return new Date();
@@ -90,25 +108,62 @@ export const RECEIPT_PRINT_STYLES = `
     margin-bottom: 8px;
   }
 
-  .brand-name {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+  .brand-logo {
+    display: block;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 6px;
+    object-fit: contain;
+    border-radius: 8px;
   }
 
-  .brand-tagline {
-    margin: 2px 0 0;
+  .brand-name {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.25;
+  }
+
+  .brand-sub {
+    margin: 3px 0 0;
     font-size: 9px;
-    color: #4b5563;
+    font-weight: 700;
+    color: #1f2937;
     letter-spacing: 0.04em;
   }
 
-  .brand-meta {
+  .brand-location {
+    margin: 5px 0 0;
+    font-size: 8.5px;
+    color: #374151;
+    line-height: 1.35;
+  }
+
+  .brand-distributors {
     margin: 4px 0 0;
-    font-size: 9px;
-    color: #6b7280;
+    font-size: 7.5px;
+    font-weight: 600;
+    color: #4b5563;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-contact {
+    margin: 5px 0 0;
+    font-size: 8.5px;
+    color: #4b5563;
+    line-height: 1.4;
+  }
+
+  .brand-phones {
+    margin: 2px 0 0;
+    font-size: 8.5px;
+    color: #111827;
+    font-weight: 600;
+    line-height: 1.45;
   }
 
   .rule {
@@ -232,7 +287,26 @@ export const RECEIPT_PRINT_STYLES = `
   }
 `;
 
-export function buildReceiptPrintDocument(sale: Sale): string {
+export function buildReceiptHeaderHtml(logoSrc?: string): string {
+  const src = logoSrc || getReceiptLogoSrc();
+  const phones = RECEIPT_BUSINESS.phones
+    .map((phone) => escapeHtml(phone))
+    .join('<br />');
+
+  return `
+      <div class="brand">
+        <img class="brand-logo" src="${escapeHtml(src)}" alt="${escapeHtml(RECEIPT_BUSINESS.tradingName)}" />
+        <h1 class="brand-name">${escapeHtml(RECEIPT_BUSINESS.tradingName)}</h1>
+        <p class="brand-sub">${escapeHtml(RECEIPT_BUSINESS.brandLine)}</p>
+        <p class="brand-location">${escapeHtml(RECEIPT_BUSINESS.location)}</p>
+        <p class="brand-distributors">${escapeHtml(RECEIPT_BUSINESS.distributors)}</p>
+        <p class="brand-contact">${escapeHtml(RECEIPT_BUSINESS.postal)}</p>
+        <p class="brand-phones">Tel:<br />${phones}</p>
+      </div>
+  `;
+}
+
+export function buildReceiptPrintDocument(sale: Sale, logoSrc?: string): string {
   const date = getSaleDate(sale.createdAt);
   const itemsHtml = sale.items
     .map((item) => {
@@ -269,10 +343,6 @@ export function buildReceiptPrintDocument(sale: Sale): string {
     ? `<div class="meta"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>`
     : '';
 
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.mscoatings.shop'
-  ).replace(/^https?:\/\//, '');
-
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -282,11 +352,7 @@ export function buildReceiptPrintDocument(sale: Sale): string {
   </head>
   <body>
     <div class="receipt">
-      <div class="brand">
-        <h1 class="brand-name">${escapeHtml(BRAND_NAME)}</h1>
-        <p class="brand-tagline">${escapeHtml(BRAND_TAGLINE)}</p>
-        <p class="brand-meta">Kampala, Uganda · ${escapeHtml(BUSINESS_INFO.telephoneDisplay)}</p>
-      </div>
+      ${buildReceiptHeaderHtml(logoSrc)}
 
       <hr class="rule" />
 
@@ -328,7 +394,7 @@ export function buildReceiptPrintDocument(sale: Sale): string {
         <strong>Thank you for your business</strong>
         <span>Please retain this receipt for your records.</span>
         <br />
-        <span>${escapeHtml(siteUrl)}</span>
+        <span>${escapeHtml(RECEIPT_BUSINESS.siteUrl)}</span>
       </div>
     </div>
   </body>

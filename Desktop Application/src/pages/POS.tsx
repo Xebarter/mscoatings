@@ -7,15 +7,13 @@ import {
   Search,
   ShoppingCart,
   Trash2,
-  ScanBarcode,
   CreditCard,
   X,
 } from 'lucide-react';
-import { getProducts, getProductByBarcode } from '@/lib/firestore';
+import { getProducts } from '@/lib/firestore';
 import { createSale, PAYMENT_METHODS, voidSale } from '@/lib/sales';
 import { formatUgx } from '@/lib/currency';
 import type { Product, Sale, SalePaymentMethod } from '@/lib/types';
-import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOnline } from '@/hooks/useOnline';
 import { usePermissions } from '@/hooks/usePermissions';
 import Panel from '@/components/Panel';
@@ -82,45 +80,12 @@ export default function POSPage() {
     });
   }, []);
 
-  const handleBarcodeScan = useCallback(
-    async (code: string) => {
-      const trimmed = code.trim();
-      if (!trimmed) return;
-
-      const cached = products.find((p) => p.barcode === trimmed);
-      if (cached) {
-        addToCart(cached);
-        toast.success(`Added ${cached.name}`);
-        return;
-      }
-
-      try {
-        const product = await getProductByBarcode(trimmed);
-        if (product && product.stock > 0) {
-          addToCart(product);
-          toast.success(`Added ${product.name}`);
-        } else {
-          toast.error('Product not found or out of stock');
-        }
-      } catch {
-        toast.error('Barcode lookup failed');
-      }
-    },
-    [products, addToCart]
-  );
-
-  useBarcodeScanner({
-    onScan: handleBarcodeScan,
-    enabled: !checkoutOpen && !receiptOpen,
-  });
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return products;
     return products.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.barcode?.toLowerCase().includes(q) ||
         p.sku?.toLowerCase().includes(q)
     );
   }, [products, search]);
@@ -379,15 +344,9 @@ export default function POSPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Point of Sale</h1>
           <p className="mt-1 text-slate-500">
             {online
-              ? 'Search products · USB scanner ready'
+              ? 'Search and add products to the cart'
               : 'Offline POS enabled — sales queue until you reconnect'}
           </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-blue-700">
-          <ScanBarcode size={18} />
-          <span className="text-sm font-medium">
-            {online ? 'Scanner active' : 'Offline · Scanner active'}
-          </span>
         </div>
       </div>
 
@@ -399,7 +358,7 @@ export default function POSPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, barcode, or SKU..."
+              placeholder="Search by name or SKU..."
               className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>

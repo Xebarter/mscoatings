@@ -39,6 +39,8 @@ export interface Product {
   /** Price used when field agents pick products; defaults to `price`. */
   fieldPickPrice?: number;
   reorderLevel?: number;
+  /** When false, hidden from shop/home; still available in admin/POS. Defaults to true. */
+  msProduct?: boolean;
 }
 
 export interface OrderItem {

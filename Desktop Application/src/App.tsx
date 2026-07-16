@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { useOnline } from '@/hooks/useOnline';
 import { bindOfflineSync } from '@/lib/offline/sync';
 import { warmOfflineCache } from '@/lib/firestore';
@@ -31,10 +31,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const online = useOnline();
 
   useEffect(() => {
-    if (user && hasAccess && online) {
+    if (hasAccess && online) {
       void warmOfflineCache();
     }
-  }, [user, hasAccess, online]);
+  }, [hasAccess, online]);
 
   if (loading) {
     return (
@@ -44,68 +44,67 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  // Stay signed in via trusted offline session even if Firebase Auth is briefly null.
+  if (hasAccess) {
+    return <>{children}</>;
   }
 
-  if (accessStatus === 'pending') {
+  if (accessStatus === 'pending' && user) {
     return <Navigate to="/pending" replace />;
   }
 
-  if (!hasAccess) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
+  return <Navigate to="/login" replace />;
 }
 
 export default function App() {
   useEffect(() => bindOfflineSync(), []);
 
   return (
-    <HashRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            borderRadius: '12px',
-            background: '#0f172a',
-            color: '#fff',
-            fontSize: '14px',
-          },
-        }}
-      />
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/pending" element={<PendingApprovalPage />} />
-        <Route
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<DashboardPage />} />
-          <Route path="pos" element={<POSPage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="products/new" element={<ProductEditPage />} />
-          <Route path="products/:id" element={<ProductEditPage />} />
-          <Route path="inventory" element={<InventoryPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="orders/:id" element={<OrderDetailPage />} />
-          <Route path="sales/:id" element={<SaleDetailPage />} />
-          <Route path="messages" element={<MessagesPage />} />
-          <Route path="field-sales" element={<FieldSalesPage />} />
-          <Route path="field-sales/picks/:id" element={<FieldPickDetailPage />} />
-          <Route path="field-sales/agents/:id" element={<FieldAgentDetailPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="expenses" element={<ExpensesPage />} />
-          <Route path="credit" element={<CreditPage />} />
-          <Route path="credit/:id" element={<CreditCustomerDetailPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              borderRadius: '12px',
+              background: '#0f172a',
+              color: '#fff',
+              fontSize: '14px',
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/pending" element={<PendingApprovalPage />} />
+          <Route
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="pos" element={<POSPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="products/new" element={<ProductEditPage />} />
+            <Route path="products/:id" element={<ProductEditPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="sales/:id" element={<SaleDetailPage />} />
+            <Route path="messages" element={<MessagesPage />} />
+            <Route path="field-sales" element={<FieldSalesPage />} />
+            <Route path="field-sales/picks/:id" element={<FieldPickDetailPage />} />
+            <Route path="field-sales/agents/:id" element={<FieldAgentDetailPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="expenses" element={<ExpensesPage />} />
+            <Route path="credit" element={<CreditPage />} />
+            <Route path="credit/:id" element={<CreditCustomerDetailPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </HashRouter>
+    </AuthProvider>
   );
 }

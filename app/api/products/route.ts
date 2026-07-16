@@ -11,10 +11,11 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isMsStorefrontProduct } from '@/lib/products-server';
 
 const productsCollection = collection(db, 'products');
 
-// GET all products or a specific product
+// GET all products or a specific product (storefront: MS products only)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -25,9 +26,16 @@ export async function GET(request: NextRequest) {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (!isMsStorefrontProduct(data as { msProduct?: boolean })) {
+          return NextResponse.json(
+            { error: 'Product not found' },
+            { status: 404 }
+          );
+        }
         return NextResponse.json({
           id: docSnap.id,
-          ...docSnap.data(),
+          ...data,
         });
       } else {
         return NextResponse.json(
@@ -37,12 +45,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get all products
+    // Get all MS storefront products
     const querySnapshot = await getDocs(productsCollection);
-    const products = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const products = querySnapshot.docs
+      .filter((d) => isMsStorefrontProduct(d.data() as { msProduct?: boolean }))
+      .map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
 
     return NextResponse.json(products);
   } catch (error) {
@@ -58,7 +68,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, price, category, stock, image, fieldPickPrice, costPrice } = body;
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      image,
+      fieldPickPrice,
+      costPrice,
+      msProduct,
+    } = body;
 
     // Validation
     if (!name || price === undefined || !image) {
@@ -83,6 +103,7 @@ export async function POST(request: NextRequest) {
       category: category || 'Uncategorized',
       stock: parseInt(stock) || 0,
       image,
+      msProduct: msProduct !== false,
       createdAt: Timestamp.now(),
     });
 

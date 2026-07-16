@@ -8,7 +8,7 @@ import {
   ImageIcon,
   Info,
   Package,
-  ScanBarcode,
+  Store,
   Trash2,
   Upload,
   X,
@@ -20,8 +20,6 @@ import {
   updateProduct,
 } from '@/lib/firestore';
 import { uploadProductImage, validateProductImage } from '@/lib/storage';
-import { downloadProductBarcodeLabel } from '@/lib/product-barcode';
-import { adminFetch } from '@/lib/admin-api';
 import { enqueueImageUpload } from '@/lib/offline/flush-queue';
 import { useOnline } from '@/hooks/useOnline';
 import { PageLoader } from '@/components/LoadingSpinner';
@@ -79,12 +77,12 @@ export default function ProductEditPage() {
     category: '',
     stock: 0,
     image: '',
-    barcode: '',
     sku: '',
     brand: '',
     costPrice: 0,
     fieldPickPrice: 0,
     reorderLevel: 5,
+    msProduct: true,
   });
 
   useEffect(() => {
@@ -115,12 +113,12 @@ export default function ProductEditPage() {
         category: product.category,
         stock: product.stock,
         image: product.image,
-        barcode: product.barcode ?? '',
         sku: product.sku ?? '',
         brand: product.brand ?? '',
         costPrice: product.costPrice ?? 0,
         fieldPickPrice: product.fieldPickPrice ?? product.price,
         reorderLevel: product.reorderLevel ?? 5,
+        msProduct: product.msProduct !== false,
       });
       setImagePreview(product.image);
     } catch {
@@ -210,28 +208,6 @@ export default function ProductEditPage() {
     void startImageUpload(file);
   };
 
-  const handleGenerateBarcode = async () => {
-    if (!online) {
-      const local = `MSC${Date.now().toString().slice(-10)}${Math.floor(10 + Math.random() * 89)}`;
-      setFormData((prev) => ({ ...prev, barcode: local }));
-      toast.success('Offline barcode generated');
-      return;
-    }
-    try {
-      const res = await adminFetch('/api/products/barcode', { method: 'GET' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          typeof data.error === 'string' ? data.error : 'Failed to generate barcode'
-        );
-      }
-      setFormData((prev) => ({ ...prev, barcode: String(data.barcode ?? '') }));
-      toast.success('Barcode generated');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Barcode generation failed');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -267,27 +243,6 @@ export default function ProductEditPage() {
         }
       }
 
-      let barcode = formData.barcode.trim();
-
-      if (isNewProduct && !barcode) {
-        if (online) {
-          const barcodeResponse = await adminFetch('/api/products/barcode', {
-            method: 'GET',
-          });
-          const barcodeData = await barcodeResponse.json().catch(() => ({}));
-          if (!barcodeResponse.ok) {
-            throw new Error(
-              typeof barcodeData.error === 'string'
-                ? barcodeData.error
-                : 'Failed to generate barcode'
-            );
-          }
-          barcode = String(barcodeData.barcode ?? '');
-        } else {
-          barcode = `MSC${Date.now().toString().slice(-10)}${Math.floor(10 + Math.random() * 89)}`;
-        }
-      }
-
       const productPayload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -295,12 +250,12 @@ export default function ProductEditPage() {
         category: formData.category.trim() || 'Uncategorized',
         stock: formData.stock,
         image: imageUrl,
-        ...(barcode ? { barcode } : {}),
         ...(formData.sku.trim() ? { sku: formData.sku.trim() } : {}),
         ...(formData.brand.trim() ? { brand: formData.brand.trim() } : {}),
         costPrice: formData.costPrice,
         fieldPickPrice: formData.fieldPickPrice || formData.price,
         reorderLevel: formData.reorderLevel,
+        msProduct: formData.msProduct,
       };
 
       let savedId = productId;
@@ -342,23 +297,6 @@ export default function ProductEditPage() {
       navigate('/products');
     } catch {
       toast.error('Failed to delete product');
-    }
-  };
-
-  const handleDownloadBarcode = async () => {
-    if (!formData.barcode.trim()) {
-      toast.error('Set a barcode first');
-      return;
-    }
-    try {
-      await downloadProductBarcodeLabel({
-        id: productId ?? 'new',
-        name: formData.name || 'Product',
-        price: formData.price,
-        barcode: formData.barcode,
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Download failed');
     }
   };
 
@@ -405,6 +343,41 @@ export default function ProductEditPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+              <Store size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-base font-semibold tracking-tight text-slate-900">
+                MS product
+              </p>
+              <p className="mt-0.5 text-sm text-slate-500">
+                When off, this product stays in inventory and POS but is hidden from the
+                shop and home page.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={formData.msProduct}
+            aria-label="MS product"
+            onClick={() =>
+              setFormData((prev) => ({ ...prev, msProduct: !prev.msProduct }))
+            }
+            className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+              formData.msProduct ? 'bg-blue-600' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition ${
+                formData.msProduct ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             <FormSection
@@ -470,36 +443,6 @@ export default function ProductEditPage() {
                     className={fieldClass}
                     placeholder="Internal SKU"
                   />
-                </div>
-                <div>
-                  <label className={labelClass}>Barcode</label>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      name="barcode"
-                      value={formData.barcode}
-                      onChange={handleInputChange}
-                      className={`${fieldClass} min-w-0 flex-1 font-mono`}
-                      placeholder="Auto on save if empty"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleGenerateBarcode()}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                    >
-                      <ScanBarcode size={16} />
-                      Generate
-                    </button>
-                    {formData.barcode && (
-                      <button
-                        type="button"
-                        onClick={() => void handleDownloadBarcode()}
-                        className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-violet-700"
-                      >
-                        Label
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
             </FormSection>
@@ -721,7 +664,7 @@ export default function ProductEditPage() {
         <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur">
           <p className="hidden text-sm text-slate-500 sm:block">
             {isNewProduct
-              ? 'Barcode is generated automatically on save if empty.'
+              ? 'Fill in the details below to add a catalog item.'
               : 'Changes sync when you are back online.'}
           </p>
           <div className="flex w-full flex-wrap gap-3 sm:w-auto">

@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import {
   getOfflineSession,
   isAdminEmail,
   saveOfflineSession,
+  touchOfflineSession,
 } from '@/lib/admin-auth';
 import { getStaffByEmail, warmOfflineCache } from '@/lib/firestore';
 import type { Permissions, StaffRole } from '@/lib/types';
@@ -15,12 +23,16 @@ export type AccessStatus = 'loading' | 'none' | 'super_admin' | 'staff' | 'pendi
 
 export interface AuthState {
   user: User | null;
+  /** Email from Firebase user or trusted offline session */
+  email: string | null;
   accessStatus: AccessStatus;
   role: StaffRole | null;
   permissions: Permissions | null;
   loading: boolean;
   hasAccess: boolean;
 }
+
+const AuthContext = createContext<AuthState | null>(null);
 
 function accessFromSession(session: Awaited<ReturnType<typeof getOfflineSession>>): {
   accessStatus: AccessStatus;
@@ -49,9 +61,24 @@ function accessFromSession(session: Awaited<ReturnType<typeof getOfflineSession>
   return null;
 }
 
-export function useAuth(): AuthState {
+async function restoreTrustedOfflineSession(): Promise<AuthState | null> {
+  const session = await getOfflineSession();
+  const restored = accessFromSession(session);
+  if (!session || !restored?.hasAccess) return null;
+
+  await touchOfflineSession();
+  return {
+    user: null,
+    email: session.email,
+    ...restored,
+    loading: false,
+  };
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
+    email: null,
     accessStatus: 'loading',
     role: null,
     permissions: null,
@@ -60,10 +87,21 @@ export function useAuth(): AuthState {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user?.email) {
+        // Firebase Auth briefly null on startup / token refresh — keep desktop session
+        // until the user explicitly signs out (which clears the offline session).
+        const trusted = await restoreTrustedOfflineSession();
+        if (cancelled) return;
+        if (trusted) {
+          setState(trusted);
+          return;
+        }
         setState({
           user: null,
+          email: null,
           accessStatus: 'none',
           role: null,
           permissions: null,
@@ -80,8 +118,10 @@ export function useAuth(): AuthState {
           isSuperAdmin: true,
           active: true,
         });
+        if (cancelled) return;
         setState({
           user,
+          email: user.email.toLowerCase(),
           accessStatus: 'super_admin',
           role: 'admin',
           permissions: getPermissionsForRole('admin'),
@@ -96,6 +136,8 @@ export function useAuth(): AuthState {
 
       try {
         const staff = await getStaffByEmail(user.email);
+        if (cancelled) return;
+
         if (staff?.active) {
           const isSuper = Boolean(staff.isSuperAdmin);
           const accessStatus = isSuper ? 'super_admin' : 'staff';
@@ -105,8 +147,10 @@ export function useAuth(): AuthState {
             isSuperAdmin: isSuper,
             active: true,
           });
+          if (cancelled) return;
           setState({
             user,
+            email: user.email.toLowerCase(),
             accessStatus,
             role: staff.role,
             permissions: getPermissionsForRole(staff.role),
@@ -124,8 +168,10 @@ export function useAuth(): AuthState {
             accessStatus: 'pending',
             active: false,
           });
+          if (cancelled) return;
           setState({
             user,
+            email: user.email.toLowerCase(),
             accessStatus: 'pending',
             role: null,
             permissions: null,
@@ -135,21 +181,26 @@ export function useAuth(): AuthState {
           return;
         }
 
-        // Staff doc missing — only demote if we have no prior approved offline session.
+        // Staff doc missing — keep prior approved offline session (do not kick out).
         const session = await getOfflineSession();
         if (session?.uid === user.uid) {
           const restored = accessFromSession(session);
           if (restored?.hasAccess) {
+            await touchOfflineSession();
+            if (cancelled) return;
             setState({
               user,
+              email: user.email.toLowerCase(),
               ...restored,
               loading: false,
             });
             return;
           }
           if (restored?.accessStatus === 'pending') {
+            if (cancelled) return;
             setState({
               user,
+              email: user.email.toLowerCase(),
               accessStatus: 'pending',
               role: null,
               permissions: null,
@@ -160,8 +211,10 @@ export function useAuth(): AuthState {
           }
         }
 
+        if (cancelled) return;
         setState({
           user,
+          email: user.email.toLowerCase(),
           accessStatus: 'none',
           role: null,
           permissions: null,
@@ -169,13 +222,16 @@ export function useAuth(): AuthState {
           hasAccess: false,
         });
       } catch {
-        // Offline / cache miss: keep previously approved sessions usable.
+        // Network/cache errors must not sign the user out of the desktop app.
         const session = await getOfflineSession();
         if (session?.uid === user.uid) {
           const restored = accessFromSession(session);
           if (restored) {
+            await touchOfflineSession();
+            if (cancelled) return;
             setState({
               user,
+              email: user.email.toLowerCase(),
               ...restored,
               loading: false,
             });
@@ -183,8 +239,16 @@ export function useAuth(): AuthState {
           }
         }
 
+        const trusted = await restoreTrustedOfflineSession();
+        if (cancelled) return;
+        if (trusted) {
+          setState({ ...trusted, user });
+          return;
+        }
+
         setState({
           user,
+          email: user.email.toLowerCase(),
           accessStatus: 'none',
           role: null,
           permissions: null,
@@ -194,8 +258,21 @@ export function useAuth(): AuthState {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
-  return state;
+  const value = useMemo(() => state, [state]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return ctx;
 }

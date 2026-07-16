@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Camera,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -16,13 +15,11 @@ import {
   createFieldPickClient,
   listFieldAgentsClient,
 } from '@/lib/field-sales';
-import { getProductByBarcode, getProducts } from '@/lib/firestore';
+import { getProducts } from '@/lib/firestore';
 import type { FieldAgent, Product } from '@/lib/types';
 import { formatUgx } from '@/lib/currency';
 import { getFieldPickUnitPrice } from '@/lib/product-pricing';
-import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOnline } from '@/hooks/useOnline';
-import CameraScannerModal from '@/components/CameraScannerModal';
 
 interface CartItem {
   product: Product;
@@ -57,7 +54,6 @@ export default function NewPickModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingAgent, setIsSavingAgent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -111,45 +107,12 @@ export default function NewPickModal({
     });
   }, []);
 
-  const handleBarcodeScan = useCallback(
-    async (code: string) => {
-      const trimmed = code.trim();
-      if (!trimmed) return;
-
-      const fromCache = products.find((p) => p.barcode === trimmed);
-      if (fromCache) {
-        addToCart(fromCache);
-        toast.success(`Added ${fromCache.name}`);
-        return;
-      }
-
-      try {
-        const product = await getProductByBarcode(trimmed);
-        if (product && product.stock > 0) {
-          addToCart(product);
-          toast.success(`Added ${product.name}`);
-        } else {
-          toast.error('Product not found or out of stock');
-        }
-      } catch {
-        toast.error('Failed to look up barcode');
-      }
-    },
-    [addToCart, products]
-  );
-
-  useBarcodeScanner({
-    onScan: handleBarcodeScan,
-    enabled: open && step === 2 && !cameraOpen,
-  });
-
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return products.slice(0, 24);
     return products.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.barcode?.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
     );
   }, [products, search]);
@@ -226,7 +189,6 @@ export default function NewPickModal({
   if (!open) return null;
 
   return (
-    <>
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/70 p-0 sm:items-center sm:p-4">
       <div className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -358,28 +320,18 @@ export default function NewPickModal({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="search"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search or scan barcode…"
-                      className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCameraOpen(true)}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-slate-600 hover:bg-slate-50"
-                    aria-label="Scan barcode"
-                  >
-                    <Camera size={18} />
-                  </button>
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search products…"
+                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
+                  />
                 </div>
 
                 <div className="max-h-72 space-y-2 overflow-y-auto">
@@ -495,12 +447,5 @@ export default function NewPickModal({
         </div>
       </div>
     </div>
-
-    <CameraScannerModal
-      open={cameraOpen}
-      onClose={() => setCameraOpen(false)}
-      onScan={(code) => void handleBarcodeScan(code)}
-    />
-    </>
   );
 }

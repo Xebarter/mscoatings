@@ -367,30 +367,6 @@ export async function getProducts(): Promise<Product[]> {
   return products;
 }
 
-export async function getProductByBarcode(barcode: string): Promise<Product | null> {
-  const trimmed = barcode.trim();
-  if (!trimmed) return null;
-
-  const products = await getProducts();
-  const fromMirror = products.find((p) => p.barcode === trimmed);
-  if (fromMirror) return fromMirror;
-
-  if (!isOnline()) return null;
-
-  try {
-    const q = query(productsCollection, where('barcode', '==', trimmed));
-    const snapshot = await getDocsHybrid(q);
-    if (!snapshot.empty) {
-      const d = snapshot.docs[0];
-      return { id: d.id, ...d.data() } as Product;
-    }
-  } catch {
-    /* fall through */
-  }
-
-  return null;
-}
-
 export async function getProductById(productId: string): Promise<Product | null> {
   const fromMirror = await findInMirror('products', productId, reviveProducts);
   if (fromMirror) return fromMirror;
@@ -432,6 +408,7 @@ export async function addProduct(
       reorderLevel: productData.reorderLevel ?? 5,
       costPrice: productData.costPrice ?? 0,
       fieldPickPrice: productData.fieldPickPrice ?? productData.price,
+      msProduct: productData.msProduct ?? true,
       createdAt,
     }) as Omit<Product, 'id'>;
     const docRef = doc(productsCollection);

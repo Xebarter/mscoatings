@@ -24,6 +24,7 @@ import {
   Package,
   PaintBucket,
   ScanBarcode,
+  Store,
   Trash2,
   Upload,
   X,
@@ -93,6 +94,7 @@ export default function EditProductPage() {
     costPrice: 0,
     fieldPickPrice: 0,
     reorderLevel: 5,
+    msProduct: true,
   });
 
   useEffect(() => {
@@ -131,6 +133,7 @@ export default function EditProductPage() {
           costPrice: product.costPrice ?? 0,
           fieldPickPrice: product.fieldPickPrice ?? product.price,
           reorderLevel: product.reorderLevel ?? 5,
+          msProduct: product.msProduct !== false,
         });
         setImagePreview(product.image);
       } else {
@@ -306,6 +309,7 @@ export default function EditProductPage() {
         costPrice: formData.costPrice,
         fieldPickPrice: formData.fieldPickPrice || formData.price,
         reorderLevel: formData.reorderLevel,
+        msProduct: formData.msProduct,
       };
 
       if (isNewProduct) {
@@ -382,6 +386,41 @@ export default function EditProductPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                    <Store size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold tracking-tight text-slate-900">
+                      MS product
+                    </p>
+                    <p className="mt-0.5 text-sm text-slate-500">
+                      When off, this product stays in inventory and POS but is hidden from
+                      the shop and home page.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.msProduct}
+                  aria-label="MS product"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, msProduct: !prev.msProduct }))
+                  }
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                    formData.msProduct ? 'bg-blue-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition ${
+                      formData.msProduct ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="space-y-5">
                   <FormSection
