@@ -1,5 +1,5 @@
 import { collection, doc, Timestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import { ensureFirestoreAuthReady, getOfflineSession } from './admin-auth';
 import {
   creditCustomersCollection,
