@@ -76,6 +76,10 @@ service cloud.firestore {
       return isAdmin() || isActiveStaffWithRole(['admin', 'manager', 'inventory']);
     }
 
+    function canManageCredit() {
+      return isAdmin() || isActiveStaffWithRole(['admin', 'manager', 'sales']);
+    }
+
     function onlyStockChanged() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
         && request.resource.data.stock is number
@@ -347,6 +351,322 @@ service cloud.firestore {
       allow create: if canManageExpenses() && validNewExpense();
       allow update: if canManageExpenses() && validExpenseUpdate();
       allow delete: if canManageExpenses();
+    }
+
+    function validCreditCustomerStatus(status) {
+      return status in ['active', 'inactive'];
+    }
+
+    function validCreditCustomerCreate() {
+      return request.resource.data.keys().hasAll([
+          'name',
+          'phone',
+          'walletBalance',
+          'outstandingBalance',
+          'totalPurchased',
+          'totalPaid',
+          'status',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'phone',
+          'email',
+          'address',
+          'idNumber',
+          'notes',
+          'creditLimit',
+          'walletBalance',
+          'outstandingBalance',
+          'totalPurchased',
+          'totalPaid',
+          'status',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && request.resource.data.phone.size() <= 40
+        && (!('email' in request.resource.data)
+          || (request.resource.data.email is string && request.resource.data.email.size() <= 200))
+        && (!('address' in request.resource.data)
+          || (request.resource.data.address is string && request.resource.data.address.size() <= 400))
+        && (!('idNumber' in request.resource.data)
+          || (request.resource.data.idNumber is string && request.resource.data.idNumber.size() <= 80))
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+        && (!('creditLimit' in request.resource.data)
+          || (request.resource.data.creditLimit is number
+            && request.resource.data.creditLimit >= 0
+            && request.resource.data.creditLimit < 1000000000))
+        && request.resource.data.walletBalance is number
+        && request.resource.data.walletBalance == 0
+        && request.resource.data.outstandingBalance is number
+        && request.resource.data.outstandingBalance == 0
+        && request.resource.data.totalPurchased is number
+        && request.resource.data.totalPurchased == 0
+        && request.resource.data.totalPaid is number
+        && request.resource.data.totalPaid == 0
+        && validCreditCustomerStatus(request.resource.data.status)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy == request.auth.token.email.lower();
+    }
+
+    function creditCustomerBalancesUnchanged() {
+      return request.resource.data.walletBalance == resource.data.walletBalance
+        && request.resource.data.outstandingBalance == resource.data.outstandingBalance
+        && request.resource.data.totalPurchased == resource.data.totalPurchased
+        && request.resource.data.totalPaid == resource.data.totalPaid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy;
+    }
+
+    function creditCustomerProfileUnchanged() {
+      return request.resource.data.name == resource.data.name
+        && request.resource.data.phone == resource.data.phone
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && ((!('email' in request.resource.data) && !('email' in resource.data))
+          || request.resource.data.email == resource.data.email)
+        && ((!('address' in request.resource.data) && !('address' in resource.data))
+          || request.resource.data.address == resource.data.address)
+        && ((!('idNumber' in request.resource.data) && !('idNumber' in resource.data))
+          || request.resource.data.idNumber == resource.data.idNumber)
+        && ((!('notes' in request.resource.data) && !('notes' in resource.data))
+          || request.resource.data.notes == resource.data.notes)
+        && ((!('creditLimit' in request.resource.data) && !('creditLimit' in resource.data))
+          || request.resource.data.creditLimit == resource.data.creditLimit);
+    }
+
+    function validCreditCustomerProfileUpdate() {
+      return creditCustomerBalancesUnchanged()
+        && request.resource.data.keys().hasAll([
+          'name',
+          'phone',
+          'walletBalance',
+          'outstandingBalance',
+          'totalPurchased',
+          'totalPaid',
+          'status',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'phone',
+          'email',
+          'address',
+          'idNumber',
+          'notes',
+          'creditLimit',
+          'walletBalance',
+          'outstandingBalance',
+          'totalPurchased',
+          'totalPaid',
+          'status',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && request.resource.data.phone.size() <= 40
+        && (!('email' in request.resource.data)
+          || (request.resource.data.email is string && request.resource.data.email.size() <= 200))
+        && (!('address' in request.resource.data)
+          || (request.resource.data.address is string && request.resource.data.address.size() <= 400))
+        && (!('idNumber' in request.resource.data)
+          || (request.resource.data.idNumber is string && request.resource.data.idNumber.size() <= 80))
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+        && (!('creditLimit' in request.resource.data)
+          || (request.resource.data.creditLimit is number
+            && request.resource.data.creditLimit >= 0
+            && request.resource.data.creditLimit < 1000000000))
+        && validCreditCustomerStatus(request.resource.data.status);
+    }
+
+    function validCreditCustomerBalanceUpdate() {
+      return creditCustomerProfileUnchanged()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'walletBalance',
+          'outstandingBalance',
+          'totalPurchased',
+          'totalPaid'
+        ])
+        && request.resource.data.walletBalance is number
+        && request.resource.data.walletBalance >= 0
+        && request.resource.data.outstandingBalance is number
+        && request.resource.data.outstandingBalance >= 0
+        && request.resource.data.totalPurchased is number
+        && request.resource.data.totalPurchased >= 0
+        && request.resource.data.totalPaid is number
+        && request.resource.data.totalPaid >= 0;
+    }
+
+    function validCreditPurchaseCreate() {
+      return request.resource.data.keys().hasAll([
+          'customerId',
+          'customerName',
+          'items',
+          'totalAmount',
+          'amountPaid',
+          'balanceRemaining',
+          'status',
+          'createdAt',
+          'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'customerId',
+          'customerName',
+          'items',
+          'totalAmount',
+          'amountPaid',
+          'balanceRemaining',
+          'status',
+          'dueDate',
+          'notes',
+          'createdAt',
+          'createdBy',
+          'closedAt'
+        ])
+        && request.resource.data.customerId is string
+        && request.resource.data.customerId.size() > 0
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.totalAmount is number
+        && request.resource.data.totalAmount > 0
+        && request.resource.data.amountPaid is number
+        && request.resource.data.amountPaid == 0
+        && request.resource.data.balanceRemaining is number
+        && request.resource.data.balanceRemaining == request.resource.data.totalAmount
+        && request.resource.data.status == 'open'
+        && (!('dueDate' in request.resource.data)
+          || request.resource.data.dueDate is timestamp)
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+        && !('closedAt' in request.resource.data)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy == request.auth.token.email.lower();
+    }
+
+    function validCreditPurchasePaymentUpdate() {
+      return resource.data.status == 'open'
+        && request.resource.data.customerId == resource.data.customerId
+        && request.resource.data.customerName == resource.data.customerName
+        && request.resource.data.items == resource.data.items
+        && request.resource.data.totalAmount == resource.data.totalAmount
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['amountPaid', 'balanceRemaining', 'status', 'closedAt'])
+        && request.resource.data.amountPaid is number
+        && request.resource.data.amountPaid >= resource.data.amountPaid
+        && request.resource.data.amountPaid <= resource.data.totalAmount
+        && request.resource.data.balanceRemaining is number
+        && request.resource.data.balanceRemaining >= 0
+        && request.resource.data.balanceRemaining
+          == (resource.data.totalAmount - request.resource.data.amountPaid)
+        && (
+          (request.resource.data.balanceRemaining > 0
+            && request.resource.data.status == 'open'
+            && !('closedAt' in request.resource.data))
+          || (request.resource.data.balanceRemaining == 0
+            && request.resource.data.status == 'completed'
+            && request.resource.data.closedAt is timestamp)
+          || (request.resource.data.status == 'written_off'
+            && request.resource.data.closedAt is timestamp)
+        );
+    }
+
+    function validCreditPaymentMethod(method) {
+      return method in ['cash', 'mobile_money', 'bank_transfer', 'card', 'online', 'credit'];
+    }
+
+    function validCreditTransactionType(type) {
+      return type in ['deposit', 'installment', 'purchase', 'wallet_applied'];
+    }
+
+    function validCreditTransactionCreate() {
+      return request.resource.data.keys().hasAll([
+          'customerId',
+          'customerName',
+          'type',
+          'amount',
+          'walletBalanceAfter',
+          'outstandingBalanceAfter',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'customerId',
+          'customerName',
+          'type',
+          'amount',
+          'purchaseId',
+          'paymentMethod',
+          'reference',
+          'notes',
+          'walletBalanceAfter',
+          'outstandingBalanceAfter',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.customerId is string
+        && request.resource.data.customerId.size() > 0
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && validCreditTransactionType(request.resource.data.type)
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.amount < 1000000000
+        && (!('purchaseId' in request.resource.data)
+          || (request.resource.data.purchaseId is string
+            && request.resource.data.purchaseId.size() > 0))
+        && (!('paymentMethod' in request.resource.data)
+          || validCreditPaymentMethod(request.resource.data.paymentMethod))
+        && (!('reference' in request.resource.data)
+          || (request.resource.data.reference is string
+            && request.resource.data.reference.size() <= 120))
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string
+            && request.resource.data.notes.size() <= 1000))
+        && request.resource.data.walletBalanceAfter is number
+        && request.resource.data.walletBalanceAfter >= 0
+        && request.resource.data.outstandingBalanceAfter is number
+        && request.resource.data.outstandingBalanceAfter >= 0
+        && request.resource.data.recordedBy == request.auth.token.email.lower()
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    match /creditCustomers/{customerId} {
+      allow read: if hasStaffAccess();
+      allow create: if canManageCredit() && validCreditCustomerCreate();
+      allow update: if canManageCredit()
+        && (validCreditCustomerProfileUpdate() || validCreditCustomerBalanceUpdate());
+      allow delete: if isAdmin();
+    }
+
+    match /creditPurchases/{purchaseId} {
+      allow read: if hasStaffAccess();
+      allow create: if canManageCredit() && validCreditPurchaseCreate();
+      allow update: if canManageCredit() && validCreditPurchasePaymentUpdate();
+      allow delete: if isAdmin();
+    }
+
+    match /creditTransactions/{transactionId} {
+      allow read: if hasStaffAccess();
+      allow create: if canManageCredit() && validCreditTransactionCreate();
+      allow update, delete: if false;
     }
 
     // Contact form messages — created via Admin SDK API; staff read/update via API too.

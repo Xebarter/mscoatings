@@ -17,7 +17,13 @@ export type DesktopActivityAction =
   | 'field_pick.submit_report'
   | 'expense.create'
   | 'expense.update'
-  | 'expense.delete';
+  | 'expense.delete'
+  | 'credit.customer_create'
+  | 'credit.customer_update'
+  | 'credit.purchase_create'
+  | 'credit.payment_record'
+  | 'credit.deposit_record'
+  | 'credit.wallet_apply';
 
 /** Fire-and-forget activity log for desktop mutations (via main-process API proxy). */
 export function logDesktopActivity(input: {

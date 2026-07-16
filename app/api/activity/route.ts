@@ -36,6 +36,12 @@ const ACTIONS = new Set<StaffActivityAction>([
   'expense.create',
   'expense.update',
   'expense.delete',
+  'credit.customer_create',
+  'credit.customer_update',
+  'credit.purchase_create',
+  'credit.payment_record',
+  'credit.deposit_record',
+  'credit.wallet_apply',
 ]);
 
 const CHANNELS = new Set<StaffActivityChannel>([

@@ -95,7 +95,7 @@ export interface StockMovement {
   type: StockMovementType;
   quantityChange: number;
   resultingStock: number;
-  referenceType?: 'sale' | 'order' | 'adjustment' | 'return' | 'field_pick';
+  referenceType?: 'sale' | 'order' | 'adjustment' | 'return' | 'field_pick' | 'credit_purchase';
   referenceId?: string;
   reason?: string;
   performedBy: string;
@@ -200,6 +200,7 @@ export interface Permissions {
   accessPos: boolean;
   viewMessages: boolean;
   manageExpenses: boolean;
+  manageCredit: boolean;
 }
 
 export type ExpenseCategory =
@@ -249,6 +250,89 @@ export interface Expense {
   recordedBy: string;
   createdAt: Timestamp;
 }
+
+export type CreditCustomerStatus = 'active' | 'inactive';
+
+export interface CreditCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  idNumber?: string;
+  notes?: string;
+  creditLimit?: number;
+  walletBalance: number;
+  outstandingBalance: number;
+  totalPurchased: number;
+  totalPaid: number;
+  status: CreditCustomerStatus;
+  createdAt: Timestamp;
+  createdBy: string;
+}
+
+export interface CreditPurchaseItem {
+  productId: string;
+  productName: string;
+  barcode?: string;
+  quantity: number;
+  unitPrice: number;
+  costPrice?: number;
+  lineTotal: number;
+}
+
+export type CreditPurchaseStatus = 'open' | 'completed' | 'written_off';
+
+export interface CreditPurchase {
+  id: string;
+  customerId: string;
+  customerName: string;
+  items: CreditPurchaseItem[];
+  totalAmount: number;
+  amountPaid: number;
+  balanceRemaining: number;
+  status: CreditPurchaseStatus;
+  dueDate?: Timestamp;
+  notes?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+  closedAt?: Timestamp;
+}
+
+export type CreditTransactionType =
+  | 'deposit'
+  | 'installment'
+  | 'purchase'
+  | 'wallet_applied';
+
+export interface CreditTransaction {
+  id: string;
+  customerId: string;
+  customerName: string;
+  type: CreditTransactionType;
+  amount: number;
+  purchaseId?: string;
+  paymentMethod?: SalePaymentMethod;
+  reference?: string;
+  notes?: string;
+  walletBalanceAfter: number;
+  outstandingBalanceAfter: number;
+  recordedBy: string;
+  createdAt: Timestamp;
+}
+
+export const CREDIT_TRANSACTION_TYPE_LABELS: Record<CreditTransactionType, string> = {
+  deposit: 'Account deposit',
+  installment: 'Installment payment',
+  purchase: 'Credit purchase',
+  wallet_applied: 'Wallet applied',
+};
+
+export const CREDIT_PURCHASE_STATUS_LABELS: Record<CreditPurchaseStatus, string> = {
+  open: 'Open',
+  completed: 'Completed',
+  written_off: 'Written off',
+};
 
 export interface ReportSummary {
   totalRevenue: number;

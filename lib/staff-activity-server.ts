@@ -33,6 +33,7 @@ function categoryForAction(
   if (action.startsWith('staff.')) return 'staff';
   if (action.startsWith('customer.')) return 'customers';
   if (action.startsWith('expense.')) return 'expenses';
+  if (action.startsWith('credit.')) return 'credit';
   return 'other';
 }
 

@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   Truck,
   Warehouse,
+  Wallet,
 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { clearOfflineSession } from '@/lib/admin-auth';
@@ -43,6 +44,7 @@ const navItems: {
   { to: '/field-sales', label: 'Field Sales', icon: Truck, permission: 'manageFieldSales' },
   { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
   { to: '/expenses', label: 'Expenses', icon: Receipt, permission: 'viewReports' },
+  { to: '/credit', label: 'Credit', icon: Wallet },
   { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages', permission: 'viewMessages' },
   { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'viewReports' },
 ];

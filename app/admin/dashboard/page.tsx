@@ -374,6 +374,38 @@ function DashboardContent() {
       title: 'Analytics',
       subtitle: 'Revenue trends, order breakdowns, and business insights.',
     },
+    pos: {
+      title: 'Point of Sale',
+      subtitle: 'Process in-store sales and receipts.',
+    },
+    inventory: {
+      title: 'Inventory',
+      subtitle: 'Stock levels, adjustments, and movement history.',
+    },
+    fieldSales: {
+      title: 'Field Sales',
+      subtitle: 'Manage field agents and product picks.',
+    },
+    expenses: {
+      title: 'Expenses',
+      subtitle: 'Record and track business spending.',
+    },
+    credit: {
+      title: 'Credit',
+      subtitle: 'Credit accounts, product picks, and installment payments.',
+    },
+    reports: {
+      title: 'Reports',
+      subtitle: 'Enterprise reports and business insights.',
+    },
+    messages: {
+      title: 'Messages',
+      subtitle: 'Customer contact form inbox.',
+    },
+    staff: {
+      title: 'Staff Access',
+      subtitle: 'Manage staff roles and permissions.',
+    },
   };
 
   const { title, subtitle } = pageMeta[activeTab];
