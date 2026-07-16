@@ -15,6 +15,7 @@
  * Cleared:
  *   - orders, sales, customers, stockMovements
  *   - fieldAgents, fieldPicks, contactMessages
+ *   - creditCustomers, creditPurchases, creditTransactions
  *   - other staff (pending / non–super-admin)
  *
  * Does NOT touch Firebase Authentication users.
@@ -34,6 +35,9 @@ const WIPE_COLLECTIONS = [
   'fieldAgents',
   'fieldPicks',
   'contactMessages',
+  'creditCustomers',
+  'creditPurchases',
+  'creditTransactions',
 ] as const;
 
 function loadEnvFromFile() {
