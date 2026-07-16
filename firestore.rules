@@ -183,6 +183,61 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.token.email.lower();
     }
 
+    function validFieldAgentTransactionType(type) {
+      return type in ['deposit', 'pick_settlement'];
+    }
+
+    function validNewFieldAgentTransaction() {
+      return request.resource.data.keys().hasAll([
+          'agentId',
+          'agentName',
+          'type',
+          'amount',
+          'walletBalanceAfter',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'agentId',
+          'agentName',
+          'type',
+          'amount',
+          'pickId',
+          'paymentMethod',
+          'notes',
+          'walletBalanceAfter',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.agentId is string
+        && request.resource.data.agentId.size() > 0
+        && request.resource.data.agentName is string
+        && request.resource.data.agentName.size() > 0
+        && validFieldAgentTransactionType(request.resource.data.type)
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.amount < 1000000000
+        && (
+          request.resource.data.type != 'pick_settlement'
+          || (('pickId' in request.resource.data)
+            && request.resource.data.pickId is string
+            && request.resource.data.pickId.size() > 0)
+        )
+        && (
+          request.resource.data.type == 'pick_settlement'
+          || !('pickId' in request.resource.data)
+        )
+        && (!('paymentMethod' in request.resource.data)
+          || validCreditPaymentMethod(request.resource.data.paymentMethod))
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string
+            && request.resource.data.notes.size() <= 1000))
+        && request.resource.data.walletBalanceAfter is number
+        && request.resource.data.walletBalanceAfter >= 0
+        && request.resource.data.recordedBy == request.auth.token.email.lower()
+        && request.resource.data.createdAt is timestamp;
+    }
+
     function validNewFieldPick() {
       return request.resource.data.keys().hasAll([
           'agentId',
@@ -344,6 +399,12 @@ service cloud.firestore {
       allow create: if hasStaffAccess() && validNewFieldPick();
       allow update: if hasStaffAccess() && validFieldPickClose();
       allow delete: if isAdmin();
+    }
+
+    match /fieldAgentTransactions/{transactionId} {
+      allow read: if hasStaffAccess();
+      allow create: if hasStaffAccess() && validNewFieldAgentTransaction();
+      allow update, delete: if false;
     }
 
     match /expenses/{expenseId} {

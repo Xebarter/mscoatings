@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Camera,
   Minus,
   Plus,
   Search,
@@ -22,7 +21,6 @@ import { usePermissions } from '@/hooks/usePermissions';
 import Panel from '@/components/Panel';
 import ProductThumb from '@/components/ProductThumb';
 import SaleReceiptModal from '@/components/pos/SaleReceiptModal';
-import CameraScannerModal from '@/components/CameraScannerModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { PageLoader } from '@/components/LoadingSpinner';
 import { cn } from '@/lib/utils';
@@ -47,7 +45,6 @@ export default function POSPage() {
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptBusy, setReceiptBusy] = useState(false);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [confirmKind, setConfirmKind] = useState<'void' | null>(null);
   useEffect(() => {
     void getProducts()
@@ -112,7 +109,7 @@ export default function POSPage() {
 
   useBarcodeScanner({
     onScan: handleBarcodeScan,
-    enabled: !checkoutOpen && !cameraOpen && !receiptOpen,
+    enabled: !checkoutOpen && !receiptOpen,
   });
 
   const filtered = useMemo(() => {
@@ -254,25 +251,15 @@ export default function POSPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Point of Sale</h1>
           <p className="mt-1 text-slate-500">
             {online
-              ? 'Scan barcodes or search products · USB scanner ready'
+              ? 'Search products · USB scanner ready'
               : 'Offline POS enabled — sales queue until you reconnect'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCameraOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <Camera size={16} />
-            Camera scan
-          </button>
-          <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-blue-700">
-            <ScanBarcode size={18} />
-            <span className="text-sm font-medium">
-              {online ? 'Scanner active' : 'Offline · Scanner active'}
-            </span>
-          </div>
+        <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-2 text-blue-700">
+          <ScanBarcode size={18} />
+          <span className="text-sm font-medium">
+            {online ? 'Scanner active' : 'Offline · Scanner active'}
+          </span>
         </div>
       </div>
 
@@ -562,11 +549,6 @@ export default function POSPage() {
         onConfirm={() => void handleVoidReceiptSale()}
       />
 
-      <CameraScannerModal
-        open={cameraOpen}
-        onClose={() => setCameraOpen(false)}
-        onScan={(code) => void handleBarcodeScan(code)}
-      />
     </div>
   );
 }

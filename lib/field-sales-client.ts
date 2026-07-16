@@ -4,14 +4,19 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   runTransaction,
   Timestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { ensureFirestoreAuthReady } from '@/lib/admin-auth';
 import type {
   FieldAgent,
+  FieldAgentTransaction,
   FieldPick,
   FieldPickItem,
   FieldPickReport,
@@ -24,6 +29,7 @@ import { logClientActivity } from '@/lib/staff-activity-client';
 
 const fieldAgentsCollection = collection(db, 'fieldAgents');
 const fieldPicksCollection = collection(db, 'fieldPicks');
+const fieldAgentTransactionsCollection = collection(db, 'fieldAgentTransactions');
 
 function generateReceiptNumber(): string {
   const now = new Date();
@@ -95,6 +101,7 @@ export async function createFieldAgentClient(input: {
       totalPicks: 0,
       totalRevenue: 0,
       totalUnitsMissing: 0,
+      walletBalance: 0,
       createdAt: Timestamp.now(),
       createdBy,
     });
@@ -142,6 +149,87 @@ export async function updateFieldAgentClient(
         name: updates.name ?? null,
       },
     });
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+export async function recordFieldAgentDepositClient(
+  agentId: string,
+  amount: number,
+  paymentMethod: SalePaymentMethod,
+  notes?: string
+): Promise<void> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Deposit amount must be greater than zero.');
+  }
+  if (notes && notes.length > 1000) {
+    throw new Error('Notes must be 1000 characters or fewer.');
+  }
+
+  const recordedBy = await requireUserEmail();
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const agentRef = doc(fieldAgentsCollection, agentId);
+      const agentSnap = await transaction.get(agentRef);
+      if (!agentSnap.exists()) throw new Error('Field agent not found.');
+
+      const agent = agentSnap.data();
+      const walletBalance = Number(agent.walletBalance ?? 0) + amount;
+      const createdAt = Timestamp.now();
+
+      transaction.update(agentRef, { walletBalance });
+
+      const txRef = doc(fieldAgentTransactionsCollection);
+      transaction.set(txRef, {
+        agentId,
+        agentName: String(agent.name ?? ''),
+        type: 'deposit' as const,
+        amount,
+        paymentMethod,
+        ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        walletBalanceAfter: walletBalance,
+        recordedBy,
+        createdAt,
+      });
+    });
+
+    logClientActivity({
+      action: 'field_agent.deposit_record',
+      summary: `Field agent deposit · UGX ${amount.toLocaleString()}`,
+      resourceType: 'fieldAgent',
+      resourceId: agentId,
+      channel: 'web_admin',
+      metrics: { amount, paymentMethod },
+    });
+  } catch (error) {
+    throw toFirestoreError(error);
+  }
+}
+
+export async function listFieldAgentTransactionsClient(options?: {
+  agentId?: string;
+  limit?: number;
+}): Promise<FieldAgentTransaction[]> {
+  await ensureFirestoreAuthReady();
+  try {
+    const max = options?.limit ?? 200;
+    const constraints = [] as ReturnType<typeof where>[];
+    if (options?.agentId) {
+      constraints.push(where('agentId', '==', options.agentId));
+    }
+
+    const q = query(
+      fieldAgentTransactionsCollection,
+      ...constraints,
+      orderBy('createdAt', 'desc'),
+      limit(max)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(
+      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as FieldAgentTransaction
+    );
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -322,8 +410,9 @@ export interface SubmitFieldPickReportInput {
     quantitySold: number;
     quantityReturned: number;
   }>;
-  paymentMethod: SalePaymentMethod;
-  amountCollected: number;
+  depositAmount?: number;
+  depositPaymentMethod?: SalePaymentMethod;
+  depositNotes?: string;
   notes?: string;
 }
 
@@ -363,11 +452,25 @@ export async function submitFieldPickReportClient(
         input.items.map((item) => [item.productId, item])
       );
 
+      if (!agentSnap.exists()) {
+        throw new Error('Field agent not found');
+      }
+
       const reportItems: FieldPickReportItem[] = [];
       let totalSold = 0;
       let totalReturned = 0;
-      let totalMissing = 0;
       let totalRevenue = 0;
+      const pickValue = pick.items.reduce(
+        (sum, item) => sum + item.quantityPicked * item.unitPrice,
+        0
+      );
+      const depositAmount = Number(input.depositAmount ?? 0);
+      if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+        throw new Error('Deposit amount must be zero or a positive number.');
+      }
+      if (input.depositNotes && input.depositNotes.length > 1000) {
+        throw new Error('Deposit notes must be 1000 characters or fewer.');
+      }
 
       const saleItems: SaleItem[] = [];
       const productsToRead = new Set<string>();
@@ -387,9 +490,9 @@ export async function submitFieldPickReportClient(
           throw new Error(`Invalid quantities for ${pickItem.productName}`);
         }
 
-        if (quantityMissing < 0) {
+        if (quantityMissing !== 0) {
           throw new Error(
-            `Sold + returned exceeds picked for ${pickItem.productName}`
+            `Sold + returned must equal picked for ${pickItem.productName}`
           );
         }
 
@@ -408,7 +511,6 @@ export async function submitFieldPickReportClient(
 
         totalSold += quantitySold;
         totalReturned += quantityReturned;
-        totalMissing += quantityMissing;
         totalRevenue += lineRevenue;
 
         if (quantityReturned > 0) {
@@ -439,8 +541,45 @@ export async function submitFieldPickReportClient(
         productRefs.map((ref, i) => [ref.id, productSnaps[i]])
       );
 
+      const agent = agentSnap.data();
+      const currentWallet = Number(agent.walletBalance ?? 0);
+      const walletAfterDeposit = currentWallet + depositAmount;
+      if (walletAfterDeposit < pickValue) {
+        throw new Error(
+          `Insufficient wallet balance. Required ${pickValue.toLocaleString()}, available ${walletAfterDeposit.toLocaleString()}.`
+        );
+      }
+      const walletAfterSettlement = walletAfterDeposit - pickValue;
       const closedAt = Timestamp.now();
       let saleId: string | null = null;
+      const settlementPaymentMethod = input.depositPaymentMethod ?? 'cash';
+
+      if (depositAmount > 0) {
+        const depositTxRef = doc(fieldAgentTransactionsCollection);
+        transaction.set(depositTxRef, {
+          agentId: pick.agentId,
+          agentName: pick.agentName,
+          type: 'deposit' as const,
+          amount: depositAmount,
+          paymentMethod: settlementPaymentMethod,
+          ...(input.depositNotes?.trim() ? { notes: input.depositNotes.trim() } : {}),
+          walletBalanceAfter: walletAfterDeposit,
+          recordedBy: closedBy,
+          createdAt: closedAt,
+        });
+      }
+
+      const settlementTxRef = doc(fieldAgentTransactionsCollection);
+      transaction.set(settlementTxRef, {
+        agentId: pick.agentId,
+        agentName: pick.agentName,
+        type: 'pick_settlement' as const,
+        amount: pickValue,
+        pickId: input.pickId,
+        walletBalanceAfter: walletAfterSettlement,
+        recordedBy: closedBy,
+        createdAt: closedAt,
+      });
 
       if (saleItems.length > 0) {
         const receiptNumber = generateReceiptNumber();
@@ -453,12 +592,10 @@ export async function submitFieldPickReportClient(
           subtotal: totalRevenue,
           discountTotal: 0,
           totalAmount: totalRevenue,
-          paymentMethod: input.paymentMethod,
-          amountTendered: input.amountCollected,
+          paymentMethod: settlementPaymentMethod,
+          amountTendered: totalRevenue,
           changeGiven:
-            input.paymentMethod === 'cash'
-              ? Math.max(0, input.amountCollected - totalRevenue)
-              : 0,
+            settlementPaymentMethod === 'cash' ? 0 : 0,
           paymentReference: null,
           customerId: null,
           customerName: pick.agentName,
@@ -474,7 +611,7 @@ export async function submitFieldPickReportClient(
       }
 
       for (const reportItem of reportItems) {
-        if (reportItem.quantityReturned <= 0 && reportItem.quantityMissing <= 0) {
+        if (reportItem.quantityReturned <= 0) {
           continue;
         }
 
@@ -507,21 +644,6 @@ export async function submitFieldPickReportClient(
           currentStock = newStock;
         }
 
-        if (reportItem.quantityMissing > 0) {
-          const movementRef = doc(collection(db, 'stockMovements'));
-          transaction.set(movementRef, {
-            productId: reportItem.productId,
-            productName: reportItem.productName,
-            type: 'lost',
-            quantityChange: 0,
-            resultingStock: currentStock,
-            referenceType: 'field_pick',
-            referenceId: input.pickId,
-            reason: `field_missing:${reportItem.quantityMissing}`,
-            performedBy: closedBy,
-            createdAt: closedAt,
-          });
-        }
       }
 
       const trimmedNotes = input.notes?.trim();
@@ -529,10 +651,14 @@ export async function submitFieldPickReportClient(
         items: reportItems,
         totalSold,
         totalReturned,
-        totalMissing,
+        totalMissing: 0,
         totalRevenue,
-        paymentMethod: input.paymentMethod,
-        amountCollected: input.amountCollected,
+        paymentMethod: settlementPaymentMethod,
+        amountCollected: depositAmount,
+        pickValue,
+        depositAtReport: depositAmount > 0 ? depositAmount : undefined,
+        walletApplied: pickValue,
+        walletBalanceAfter: walletAfterSettlement,
         ...(trimmedNotes ? { notes: trimmedNotes } : {}),
         ...(saleId ? { saleId } : {}),
       };
@@ -544,14 +670,11 @@ export async function submitFieldPickReportClient(
         closedBy,
       });
 
-      if (agentSnap.exists()) {
-        const agent = agentSnap.data();
-        transaction.update(agentRef, {
-          totalPicks: (agent.totalPicks ?? 0) + 1,
-          totalRevenue: (agent.totalRevenue ?? 0) + totalRevenue,
-          totalUnitsMissing: (agent.totalUnitsMissing ?? 0) + totalMissing,
-        });
-      }
+      transaction.update(agentRef, {
+        totalPicks: (agent.totalPicks ?? 0) + 1,
+        totalRevenue: (agent.totalRevenue ?? 0) + totalRevenue,
+        walletBalance: walletAfterSettlement,
+      });
 
       return { saleId, report };
     });
@@ -565,8 +688,10 @@ export async function submitFieldPickReportClient(
       metrics: {
         totalSold: result.report.totalSold,
         totalReturned: result.report.totalReturned,
-        totalMissing: result.report.totalMissing,
         totalRevenue: result.report.totalRevenue,
+        pickValue: result.report.pickValue ?? 0,
+        walletApplied: result.report.walletApplied ?? 0,
+        depositAtReport: result.report.depositAtReport ?? 0,
         paymentMethod: result.report.paymentMethod,
         saleId: result.saleId,
       },

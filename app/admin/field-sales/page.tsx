@@ -18,7 +18,6 @@ import {
 import { formatUgx } from '@/lib/currency';
 import type { FieldAgent, FieldPick } from '@/lib/erp-types';
 import {
-  AlertTriangle,
   ClipboardCheck,
   ExternalLink,
   History,
@@ -127,15 +126,10 @@ export default function FieldSalesPage() {
       })
       .reduce((sum, pick) => sum + (pick.report?.totalRevenue ?? 0), 0);
 
-    const openDiscrepancies = closedPicks.filter(
-      (pick) => (pick.report?.totalMissing ?? 0) > 0
-    ).length;
-
     return {
       activeCount: activePicks.length,
       stockOutValue,
       todayRevenue,
-      openDiscrepancies,
       agentCount: agents.filter((a) => a.active).length,
     };
   }, [activePicks, closedPicks, agents]);
@@ -229,10 +223,10 @@ export default function FieldSalesPage() {
               tone: 'text-emerald-600 bg-emerald-50',
             },
             {
-              label: 'Reports with missing',
-              value: String(stats.openDiscrepancies),
-              icon: AlertTriangle,
-              tone: 'text-amber-600 bg-amber-50',
+              label: 'Active agents',
+              value: String(stats.agentCount),
+              icon: Users,
+              tone: 'text-violet-600 bg-violet-50',
             },
           ].map((stat) => {
             const Icon = stat.icon;
@@ -355,7 +349,7 @@ export default function FieldSalesPage() {
                   <th className="px-4 py-3 font-semibold">Closed</th>
                   <th className="px-4 py-3 text-right font-semibold">Sold</th>
                   <th className="px-4 py-3 text-right font-semibold">Returned</th>
-                  <th className="px-4 py-3 text-right font-semibold">Missing</th>
+                  <th className="px-4 py-3 text-right font-semibold">Pick value</th>
                   <th className="px-5 py-3 text-right font-semibold">Revenue</th>
                   <th className="px-4 py-3 font-semibold" />
                 </tr>
@@ -395,14 +389,15 @@ export default function FieldSalesPage() {
                       <td className="px-4 py-3.5 text-right">
                         {pick.report?.totalReturned ?? 0}
                       </td>
-                      <td
-                        className={`px-4 py-3.5 text-right font-medium ${
-                          (pick.report?.totalMissing ?? 0) > 0
-                            ? 'text-amber-600'
-                            : 'text-slate-700'
-                        }`}
-                      >
-                        {pick.report?.totalMissing ?? 0}
+                      <td className="px-4 py-3.5 text-right font-medium text-slate-700">
+                        {formatUgx(
+                          pick.report?.pickValue ??
+                            pick.items.reduce(
+                              (sum, item) =>
+                                sum + item.quantityPicked * item.unitPrice,
+                              0
+                            )
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-right font-semibold">
                         {formatUgx(pick.report?.totalRevenue ?? 0)}
@@ -500,7 +495,7 @@ export default function FieldSalesPage() {
                     <th className="px-4 py-3 font-semibold">Phone</th>
                     <th className="px-4 py-3 text-right font-semibold">Picks</th>
                     <th className="px-4 py-3 text-right font-semibold">Revenue</th>
-                    <th className="px-4 py-3 text-right font-semibold">Missing</th>
+                    <th className="px-4 py-3 text-right font-semibold">Wallet</th>
                     <th className="px-4 py-3 text-center font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold" />
                   </tr>
@@ -508,7 +503,7 @@ export default function FieldSalesPage() {
                 <tbody className="divide-y divide-slate-100">
                   {agents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                    <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
                         No field agents registered
                       </td>
                     </tr>
@@ -523,8 +518,8 @@ export default function FieldSalesPage() {
                         <td className="px-4 py-3.5 text-right font-medium">
                           {formatUgx(agent.totalRevenue)}
                         </td>
-                        <td className="px-4 py-3.5 text-right text-amber-600">
-                          {agent.totalUnitsMissing}
+                        <td className="px-4 py-3.5 text-right font-medium text-violet-700">
+                          {formatUgx(agent.walletBalance ?? 0)}
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <button

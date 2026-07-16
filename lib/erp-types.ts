@@ -320,9 +320,34 @@ export interface FieldAgent {
   totalPicks: number;
   totalRevenue: number;
   totalUnitsMissing: number;
+  walletBalance?: number;
   createdAt: Timestamp;
   createdBy: string;
 }
+
+export type FieldAgentTransactionType = 'deposit' | 'pick_settlement';
+
+export interface FieldAgentTransaction {
+  id: string;
+  agentId: string;
+  agentName: string;
+  type: FieldAgentTransactionType;
+  amount: number;
+  pickId?: string;
+  paymentMethod?: SalePaymentMethod;
+  notes?: string;
+  walletBalanceAfter: number;
+  recordedBy: string;
+  createdAt: Timestamp;
+}
+
+export const FIELD_AGENT_TRANSACTION_TYPE_LABELS: Record<
+  FieldAgentTransactionType,
+  string
+> = {
+  deposit: 'Account deposit',
+  pick_settlement: 'Pick settlement',
+};
 
 export interface FieldPickItem {
   productId: string;
@@ -352,6 +377,10 @@ export interface FieldPickReport {
   totalRevenue: number;
   paymentMethod: SalePaymentMethod;
   amountCollected: number;
+  pickValue?: number;
+  depositAtReport?: number;
+  walletApplied?: number;
+  walletBalanceAfter?: number;
   notes?: string;
   saleId?: string;
 }

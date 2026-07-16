@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import AdminGuard from '@/components/admin-guard';
 import AdminLayout from '@/components/admin-layout';
 import ProductImage from '@/components/product-image';
-import CameraScannerModal from '@/components/admin/pos/camera-scanner-modal';
 import CheckoutModal from '@/components/admin/pos/checkout-modal';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -23,7 +22,6 @@ import type { Sale, SalePaymentMethod } from '@/lib/erp-types';
 import { Timestamp } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
 import {
-  Camera,
   Minus,
   Plus,
   Search,
@@ -44,7 +42,6 @@ export default function PosPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCancellingSale, setIsCancellingSale] = useState(false);
@@ -122,7 +119,7 @@ export default function PosPage() {
 
   useBarcodeScanner({
     onScan: handleBarcodeScan,
-    enabled: !checkoutOpen && !cameraOpen && !completedSale,
+    enabled: !checkoutOpen && !completedSale,
   });
 
   const filteredProducts = useMemo(() => {
@@ -321,43 +318,33 @@ export default function PosPage() {
       <AdminLayout
         activeSection="pos"
         title="Point of Sale"
-        subtitle="Scan, search, and checkout — built for fast counter sales."
+        subtitle="Search and checkout — built for fast counter sales."
       >
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
           {/* Products panel */}
           <div className="min-w-0 flex-1 space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative flex-1">
-                  <Search
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search name, barcode, brand, paint code..."
-                    data-barcode-input="true"
-                    autoFocus
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCameraOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  <Camera size={18} />
-                  Scan
-                </button>
+              <div className="relative">
+                <Search
+                  size={18}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, barcode, brand, paint code..."
+                  data-barcode-input="true"
+                  autoFocus
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
               </div>
               <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
                   <ScanBarcode size={12} />
                   Scanner active
                 </span>
-                USB scanner or camera — scan to add instantly
+                USB scanner — scan to add instantly
               </p>
             </div>
 
@@ -473,7 +460,7 @@ export default function PosPage() {
                     </div>
                     <p className="font-medium text-slate-700">Cart is empty</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      Tap a product or scan a barcode
+                      Tap a product to add it
                     </p>
                   </div>
                 ) : (
@@ -563,12 +550,6 @@ export default function PosPage() {
             </div>
           </aside>
         </div>
-
-        <CameraScannerModal
-          open={cameraOpen}
-          onClose={() => setCameraOpen(false)}
-          onScan={handleBarcodeScan}
-        />
 
         <CheckoutModal
           open={checkoutOpen}

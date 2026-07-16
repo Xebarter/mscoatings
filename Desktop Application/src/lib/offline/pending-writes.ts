@@ -49,7 +49,9 @@ export type PendingBatchWrite = {
     | 'product.delete'
     | 'field.pick.create'
     | 'field.pick.submit'
+    | 'field.pick.settle'
     | 'field.agent.upsert'
+    | 'field.agent.deposit'
     | 'batch';
   createdAt: number;
   ops: PendingDocOp[];
@@ -175,8 +177,12 @@ export function pendingKindLabel(kind: PendingWrite['kind']): string {
       return 'Field pick';
     case 'field.pick.submit':
       return 'Field report';
+    case 'field.pick.settle':
+      return 'Field settlement';
     case 'field.agent.upsert':
       return 'Field agent';
+    case 'field.agent.deposit':
+      return 'Field agent deposit';
     default:
       return 'Change';
   }

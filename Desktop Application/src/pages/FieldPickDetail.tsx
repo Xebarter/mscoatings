@@ -159,9 +159,6 @@ export default function FieldPickDetailPage() {
                         <th className="px-4 py-3 text-center font-semibold">
                           Returned
                         </th>
-                        <th className="px-4 py-3 text-center font-semibold">
-                          Missing
-                        </th>
                       </>
                     )}
                     <th className="px-5 py-3 text-right font-semibold">Value</th>
@@ -193,15 +190,6 @@ export default function FieldPickDetailPage() {
                             <td className="px-4 py-3.5 text-center">
                               {reportItem?.quantityReturned ?? 0}
                             </td>
-                            <td
-                              className={`px-4 py-3.5 text-center font-medium ${
-                                (reportItem?.quantityMissing ?? 0) > 0
-                                  ? 'text-amber-600'
-                                  : 'text-slate-700'
-                              }`}
-                            >
-                              {reportItem?.quantityMissing ?? 0}
-                            </td>
                           </>
                         )}
                         <td className="px-5 py-3.5 text-right font-medium">
@@ -217,9 +205,7 @@ export default function FieldPickDetailPage() {
 
           {pick.report && (
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 font-semibold text-slate-900">
-                End-of-day report
-              </h3>
+              <h3 className="mb-4 font-semibold text-slate-900">Report summary</h3>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-slate-500">Sold</p>
@@ -230,15 +216,38 @@ export default function FieldPickDetailPage() {
                   <p className="font-bold">{pick.report.totalReturned}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Missing</p>
-                  <p className="font-bold text-amber-600">
-                    {pick.report.totalMissing}
+                  <p className="text-xs text-slate-500">Pick value</p>
+                  <p className="font-bold">
+                    {formatUgx(
+                      pick.report.pickValue ??
+                        pick.items.reduce(
+                          (sum, item) =>
+                            sum + item.quantityPicked * item.unitPrice,
+                          0
+                        )
+                    )}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Collected</p>
+                  <p className="text-xs text-slate-500">Deposit at report</p>
                   <p className="font-bold">
-                    {formatUgx(pick.report.amountCollected)}
+                    {formatUgx(pick.report.depositAtReport ?? 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Wallet applied</p>
+                  <p className="font-bold">
+                    {formatUgx(
+                      pick.report.walletApplied ??
+                        pick.report.pickValue ??
+                        pickedValue
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Wallet after</p>
+                  <p className="font-bold">
+                    {formatUgx(pick.report.walletBalanceAfter ?? 0)}
                   </p>
                 </div>
               </div>
