@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       items: body.items,
       discountTotal: body.discountTotal,
       paymentMethod: body.paymentMethod,
+      maxDiscountPercent: auth.staff.permissions.maxDiscountPercent,
       amountTendered: body.amountTendered,
       paymentReference: body.paymentReference,
       customerId: body.customerId,

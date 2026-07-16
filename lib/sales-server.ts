@@ -10,6 +10,8 @@ interface CreateSaleInput {
     discount?: number;
   }>;
   discountTotal?: number;
+  /** Optional role-based cap used to enforce max discount percent. */
+  maxDiscountPercent?: number;
   paymentMethod: SalePaymentMethod;
   amountTendered?: number;
   paymentReference?: string;
@@ -62,6 +64,8 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
 
     const saleItems: SaleItem[] = [];
     let subtotal = 0;
+    let grossSubtotal = 0;
+    let itemDiscountTotal = 0;
     const stockUpdates: Array<{
       ref: FirebaseFirestore.DocumentReference;
       productName: string;
@@ -89,14 +93,33 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
 
       const unitPrice = product.price ?? 0;
       const costPrice = product.costPrice ?? 0;
-      const lineDiscount = cartItem.discount ?? 0;
-      const lineTotal = unitPrice * cartItem.quantity - lineDiscount;
+      const quantity = cartItem.quantity;
+      if (
+        !Number.isFinite(quantity) ||
+        quantity <= 0 ||
+        !Number.isInteger(quantity)
+      ) {
+        throw new Error(`Invalid quantity for ${product.name}`);
+      }
+
+      const grossLine = unitPrice * quantity;
+      const lineDiscountRaw = cartItem.discount ?? 0;
+      if (!Number.isFinite(lineDiscountRaw) || lineDiscountRaw < 0) {
+        throw new Error(`Invalid discount for ${product.name}`);
+      }
+      const lineDiscount = lineDiscountRaw;
+
+      if (lineDiscount > grossLine) {
+        throw new Error(`Discount exceeds item amount for ${product.name}`);
+      }
+
+      const lineTotal = grossLine - lineDiscount;
 
       saleItems.push({
         productId: cartItem.productId,
         name: product.name,
         barcode: product.barcode ?? '',
-        quantity: cartItem.quantity,
+        quantity,
         unitPrice,
         costPrice,
         discount: lineDiscount,
@@ -104,6 +127,8 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
       });
 
       subtotal += lineTotal;
+      grossSubtotal += grossLine;
+      itemDiscountTotal += lineDiscount;
 
       stockUpdates.push({
         ref: productRefs[i],
@@ -114,9 +139,39 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
       });
     }
 
-    const discountTotal = input.discountTotal ?? 0;
-    const totalAmount = Math.max(0, subtotal - discountTotal);
-    const amountTendered = input.amountTendered ?? totalAmount;
+    const discountTotalRaw = input.discountTotal ?? 0;
+    if (!Number.isFinite(discountTotalRaw) || discountTotalRaw < 0) {
+      throw new Error('Invalid discount total');
+    }
+    const discountTotal = discountTotalRaw;
+    if (discountTotal > subtotal) {
+      throw new Error('Discount total exceeds subtotal');
+    }
+
+    const totalAmount = subtotal - discountTotal;
+    if (totalAmount < 0) {
+      throw new Error('Total amount cannot be negative');
+    }
+
+    const maxDiscountPercent = input.maxDiscountPercent ?? null;
+    if (
+      maxDiscountPercent !== null &&
+      Number.isFinite(maxDiscountPercent) &&
+      maxDiscountPercent >= 0
+    ) {
+      const totalDiscount = itemDiscountTotal + discountTotal;
+      const cap = grossSubtotal * (maxDiscountPercent / 100);
+      if (totalDiscount > cap + 1e-6) {
+        throw new Error('Discount exceeds maximum allowed cap');
+      }
+    }
+
+    const amountTenderedRaw = input.amountTendered;
+    const amountTendered =
+      amountTenderedRaw !== undefined ? Number(amountTenderedRaw) : totalAmount;
+    if (!Number.isFinite(amountTendered) || amountTendered < 0) {
+      throw new Error('Invalid amount tendered');
+    }
     const changeGiven =
       input.paymentMethod === 'cash'
         ? Math.max(0, amountTendered - totalAmount)

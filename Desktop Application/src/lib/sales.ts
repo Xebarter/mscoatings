@@ -28,6 +28,8 @@ import { logDesktopActivity } from './staff-activity';
 export interface CreateSaleInput {
   items: Array<{ productId: string; quantity: number; discount?: number }>;
   discountTotal?: number;
+  /** Optional role-based cap used to enforce max discount percent. */
+  maxDiscountPercent?: number;
   paymentMethod: SalePaymentMethod;
   amountTendered?: number;
   paymentReference?: string;
@@ -253,6 +255,8 @@ function buildSalePayload(
 } {
   const saleItems: SaleItem[] = [];
   let subtotal = 0;
+  let grossSubtotal = 0;
+  let itemDiscountTotal = 0;
   const stockUpdates: Array<{ productId: string; stock: number; name: string }> = [];
 
   for (let i = 0; i < input.items.length; i++) {
@@ -262,17 +266,40 @@ function buildSalePayload(
       throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}`);
     }
 
+    const quantity = item.quantity;
+    if (
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isInteger(quantity)
+    ) {
+      throw new Error(`Invalid quantity for ${product.name}`);
+    }
+
     const unitPrice = product.price ?? 0;
     const costPrice = product.costPrice ?? 0;
-    const discount = item.discount ?? 0;
-    const lineTotal = unitPrice * item.quantity - discount;
+
+    const discountRaw = item.discount ?? 0;
+    if (!Number.isFinite(discountRaw) || discountRaw < 0) {
+      throw new Error(`Invalid discount for ${product.name}`);
+    }
+
+    const grossLine = unitPrice * quantity;
+    if (discountRaw > grossLine) {
+      throw new Error(`Discount exceeds item amount for ${product.name}`);
+    }
+
+    const discount = discountRaw;
+    const lineTotal = grossLine - discount;
+
     subtotal += lineTotal;
+    grossSubtotal += grossLine;
+    itemDiscountTotal += discount;
 
     saleItems.push({
       productId: product.id,
       name: product.name,
       barcode: product.barcode ?? '',
-      quantity: item.quantity,
+      quantity,
       unitPrice,
       costPrice,
       discount,
@@ -281,13 +308,38 @@ function buildSalePayload(
 
     stockUpdates.push({
       productId: product.id,
-      stock: product.stock - item.quantity,
+      stock: product.stock - quantity,
       name: product.name,
     });
   }
 
-  const discountTotal = input.discountTotal ?? 0;
+  const discountTotalRaw = input.discountTotal ?? 0;
+  if (!Number.isFinite(discountTotalRaw) || discountTotalRaw < 0) {
+    throw new Error('Invalid discount total');
+  }
+
+  const discountTotal = discountTotalRaw;
+  if (discountTotal > subtotal) {
+    throw new Error('Discount total exceeds subtotal');
+  }
+
   const totalAmount = subtotal - discountTotal;
+  if (totalAmount < 0) {
+    throw new Error('Total amount cannot be negative');
+  }
+
+  const maxDiscountPercent = input.maxDiscountPercent ?? null;
+  if (
+    maxDiscountPercent !== null &&
+    Number.isFinite(maxDiscountPercent) &&
+    maxDiscountPercent >= 0
+  ) {
+    const totalDiscount = itemDiscountTotal + discountTotal;
+    const cap = grossSubtotal * (maxDiscountPercent / 100);
+    if (totalDiscount > cap + 1e-6) {
+      throw new Error('Discount exceeds maximum allowed cap');
+    }
+  }
   const changeGiven =
     input.paymentMethod === 'cash' && input.amountTendered
       ? Math.max(0, input.amountTendered - totalAmount)

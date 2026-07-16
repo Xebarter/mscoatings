@@ -34,10 +34,11 @@ import {
 interface CartItem {
   product: Product;
   quantity: number;
+  discount: number; // fixed UGX discount for this line
 }
 
 export default function PosPage() {
-  const { loading: permLoading, can } = usePermissions();
+  const { loading: permLoading, can, permissions } = usePermissions();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
@@ -47,6 +48,7 @@ export default function PosPage() {
   const [isCancellingSale, setIsCancellingSale] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
+  const [orderDiscount, setOrderDiscount] = useState(0);
 
   useEffect(() => {
     void loadData();
@@ -86,7 +88,7 @@ export default function PosPage() {
         toast.error(`Only ${product.stock} in stock`);
         return prev;
       }
-      return [...prev, { product, quantity: qty }];
+      return [...prev, { product, quantity: qty, discount: 0 }];
     });
   }, []);
 
@@ -137,25 +139,145 @@ export default function PosPage() {
     );
   }, [products, search]);
 
-  const total = cart.reduce(
+  const canApplyDiscount = can('applyDiscount');
+  const maxDiscountPercent = permissions?.maxDiscountPercent ?? 0;
+
+  const grossSubtotal = cart.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0
   );
 
+  const itemDiscountTotal = canApplyDiscount
+    ? cart.reduce(
+        (sum, item) =>
+          sum + Math.min(item.discount, item.product.price * item.quantity),
+        0
+      )
+    : 0;
+
+  const discountedSubtotal = Math.max(0, grossSubtotal - itemDiscountTotal);
+
+  const discountCap = canApplyDiscount
+    ? grossSubtotal * (maxDiscountPercent / 100)
+    : 0;
+
+  const effectiveOrderDiscount = canApplyDiscount
+    ? Math.min(
+        orderDiscount,
+        discountedSubtotal,
+        Math.max(0, discountCap - itemDiscountTotal)
+      )
+    : 0;
+
+  const total = Math.max(0, discountedSubtotal - effectiveOrderDiscount);
+
+  const setItemDiscount = (productId: string, nextDiscount: number) => {
+    if (!canApplyDiscount) return;
+
+    setCart((prev) => {
+      const target = prev.find((i) => i.product.id === productId);
+      if (!target) return prev;
+
+      const desired = Number.isFinite(nextDiscount) ? nextDiscount : 0;
+      const safeDesired = Math.max(0, desired);
+
+      const newGrossSubtotal = prev.reduce(
+        (sum, item) => sum + item.product.price * item.quantity,
+        0
+      );
+      const newDiscountCap =
+        canApplyDiscount ? newGrossSubtotal * (maxDiscountPercent / 100) : 0;
+
+      const otherItemDiscountTotal = prev.reduce((sum, item) => {
+        if (item.product.id === productId) return sum;
+        return (
+          sum +
+          Math.min(item.discount, item.product.price * item.quantity)
+        );
+      }, 0);
+
+      const lineGross = target.product.price * target.quantity;
+      const remainingForTarget = Math.max(
+        0,
+        newDiscountCap - orderDiscount - otherItemDiscountTotal
+      );
+
+      const clamped = Math.min(safeDesired, lineGross, remainingForTarget);
+
+      return prev.map((i) =>
+        i.product.id === productId ? { ...i, discount: clamped } : i
+      );
+    });
+  };
+
+  const setOrderDiscountClamped = (nextDiscount: number) => {
+    if (!canApplyDiscount) return;
+    const desired = Number.isFinite(nextDiscount) ? nextDiscount : 0;
+    const safeDesired = Math.max(0, desired);
+    const maxBySubtotal = discountedSubtotal;
+    const maxByCap = Math.max(0, discountCap - itemDiscountTotal);
+    setOrderDiscount(Math.min(safeDesired, maxBySubtotal, maxByCap));
+  };
+
   const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev
+    setCart((prev) => {
+      const nextCart = prev
         .map((item) => {
           if (item.product.id !== productId) return item;
+
           const newQty = item.quantity + delta;
           if (newQty > item.product.stock) {
             toast.error(`Only ${item.product.stock} in stock`);
             return item;
           }
-          return { ...item, quantity: newQty };
+          if (newQty <= 0) return null;
+
+          const lineGross = item.product.price * newQty;
+          const nextDiscountByLine = canApplyDiscount
+            ? Math.min(item.discount, lineGross)
+            : 0;
+
+          return { ...item, quantity: newQty, discount: nextDiscountByLine };
         })
-        .filter((item) => item.quantity > 0)
-    );
+        .filter((item): item is CartItem => item !== null);
+
+      if (!canApplyDiscount) {
+        return nextCart.map((i) => ({ ...i, discount: 0 }));
+      }
+
+      // Enforce total discount cap: (sum(item discounts) + orderDiscount) <= cap
+      const newGrossSubtotal = nextCart.reduce(
+        (sum, item) => sum + item.product.price * item.quantity,
+        0
+      );
+      const newDiscountCap = newGrossSubtotal * (maxDiscountPercent / 100);
+
+      const otherItemDiscountTotal = nextCart.reduce((sum, item) => {
+        if (item.product.id === productId) return sum;
+        return (
+          sum +
+          Math.min(item.discount, item.product.price * item.quantity)
+        );
+      }, 0);
+
+      const target = nextCart.find((i) => i.product.id === productId);
+      if (!target) return nextCart;
+
+      const lineGross = target.product.price * target.quantity;
+      const remainingForTarget = Math.max(
+        0,
+        newDiscountCap - orderDiscount - otherItemDiscountTotal
+      );
+      const clampedTargetDiscount = Math.min(
+        target.discount,
+        lineGross,
+        remainingForTarget
+      );
+
+      return nextCart.map((i) =>
+        i.product.id === productId ? { ...i, discount: clampedTargetDiscount } : i
+      );
+    });
   };
 
   const removeFromCart = (productId: string) => {
@@ -165,6 +287,7 @@ export default function PosPage() {
   const clearCart = () => {
     if (cart.length === 0) return;
     setCart([]);
+    setOrderDiscount(0);
   };
 
   const applyStockDelta = (items: Array<{ productId: string; quantity: number }>, direction: 1 | -1) => {
@@ -221,18 +344,27 @@ export default function PosPage() {
     const cashierEmail = user?.email?.toLowerCase() ?? '';
     const cashierId = user?.uid ?? '';
 
-    const saleItems = cartSnapshot.map((item) => ({
-      productId: item.product.id,
-      name: item.product.name,
-      barcode: item.product.barcode ?? '',
-      quantity: item.quantity,
-      unitPrice: item.product.price,
-      costPrice: item.product.costPrice ?? 0,
-      discount: 0,
-      lineTotal: item.product.price * item.quantity,
-    }));
+    const saleItems = cartSnapshot.map((item) => {
+      const lineGross = item.product.price * item.quantity;
+      const lineDiscount = canApplyDiscount
+        ? Math.min(item.discount, lineGross)
+        : 0;
+
+      return {
+        productId: item.product.id,
+        name: item.product.name,
+        barcode: item.product.barcode ?? '',
+        quantity: item.quantity,
+        unitPrice: item.product.price,
+        costPrice: item.product.costPrice ?? 0,
+        discount: lineDiscount,
+        lineTotal: lineGross - lineDiscount,
+      };
+    });
+
     const subtotal = saleItems.reduce((sum, item) => sum + item.lineTotal, 0);
-    const totalAmount = subtotal;
+    const discountTotal = canApplyDiscount ? effectiveOrderDiscount : 0;
+    const totalAmount = Math.max(0, subtotal - discountTotal);
     const amountTendered = data.amountTendered ?? totalAmount;
     const changeGiven =
       data.paymentMethod === 'cash'
@@ -244,7 +376,7 @@ export default function PosPage() {
       receiptNumber: 'Saving…',
       items: saleItems,
       subtotal,
-      discountTotal: 0,
+      discountTotal,
       totalAmount,
       paymentMethod: data.paymentMethod,
       amountTendered,
@@ -258,6 +390,7 @@ export default function PosPage() {
 
     // Instant UI: clear cart, close checkout, show receipt
     setCart([]);
+    setOrderDiscount(0);
     setCheckoutOpen(false);
     setCompletedSale(optimisticSale);
     applyStockDelta(saleItems, -1);
@@ -270,9 +403,12 @@ export default function PosPage() {
         items: cartSnapshot.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
-          discount: 0,
+          discount: canApplyDiscount
+            ? Math.min(item.discount, item.product.price * item.quantity)
+            : 0,
         })),
-        discountTotal: 0,
+        discountTotal,
+        maxDiscountPercent: canApplyDiscount ? maxDiscountPercent : 0,
         paymentMethod: data.paymentMethod,
         amountTendered: data.amountTendered,
         paymentReference: data.paymentReference,
@@ -466,7 +602,11 @@ export default function PosPage() {
                 ) : (
                   <ul className="divide-y divide-slate-100">
                     {cart.map((item) => {
-                      const lineTotal = item.product.price * item.quantity;
+                      const lineGross = item.product.price * item.quantity;
+                      const lineDiscount = canApplyDiscount
+                        ? Math.min(item.discount, lineGross)
+                        : 0;
+                      const lineTotal = Math.max(0, lineGross - lineDiscount);
                       return (
                         <li key={item.product.id} className="flex gap-3 px-4 py-3.5">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-100">
@@ -491,6 +631,29 @@ export default function PosPage() {
                             <p className="text-xs text-slate-500">
                               {formatUgx(item.product.price)} × {item.quantity}
                             </p>
+                            {canApplyDiscount && (
+                              <div className="mt-1 flex items-center justify-between gap-3">
+                                <span className="text-[11px] font-medium text-slate-500">
+                                  Discount
+                                </span>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  max={lineGross}
+                                  step={1}
+                                  value={item.discount}
+                                  onChange={(e) => {
+                                    const next = parseFloat(e.target.value);
+                                    setItemDiscount(
+                                      item.product.id,
+                                      Number.isNaN(next) ? 0 : next
+                                    );
+                                  }}
+                                  className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-xs font-semibold text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                />
+                              </div>
+                            )}
                             <p className="mt-1 text-sm font-bold text-slate-900">
                               {formatUgx(lineTotal)}
                             </p>
@@ -532,6 +695,38 @@ export default function PosPage() {
               </div>
 
               <div className="border-t border-slate-100 bg-slate-50 p-4">
+                {canApplyDiscount && (
+                  <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-700">
+                        Order discount
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Max {formatUgx(Math.max(0, discountCap - itemDiscountTotal))}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-medium text-slate-500">
+                        UGX
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        max={discountedSubtotal}
+                        value={effectiveOrderDiscount}
+                        onChange={(e) => {
+                          const next = parseFloat(e.target.value);
+                          setOrderDiscountClamped(
+                            Number.isNaN(next) ? 0 : next
+                          );
+                        }}
+                        className="w-28 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-right text-sm font-semibold text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="mb-4 flex items-baseline justify-between">
                   <span className="text-sm font-medium text-slate-600">Total</span>
                   <span className="text-2xl font-bold tracking-tight text-slate-900">

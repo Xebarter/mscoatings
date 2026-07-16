@@ -656,7 +656,7 @@ export async function submitFieldPickReportClient(
         paymentMethod: settlementPaymentMethod,
         amountCollected: depositAmount,
         pickValue,
-        depositAtReport: depositAmount > 0 ? depositAmount : undefined,
+        ...(depositAmount > 0 ? { depositAtReport: depositAmount } : {}),
         walletApplied: pickValue,
         walletBalanceAfter: walletAfterSettlement,
         ...(trimmedNotes ? { notes: trimmedNotes } : {}),
