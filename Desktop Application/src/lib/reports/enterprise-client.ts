@@ -6,6 +6,7 @@ import {
   listSales,
   getCustomers,
 } from '@/lib/firestore';
+import { listExpenses } from '@/lib/expenses';
 import type { DatePreset } from '@/lib/reports/date-range';
 import type { EnterpriseReport } from '@/lib/reports/types';
 import {
@@ -27,13 +28,14 @@ export async function getEnterpriseReportClient(
   customTo?: string,
   filters: ReportFilters = {}
 ): Promise<EnterpriseReport> {
-  const [products, orders, customers, sales, movements, fieldPicks] = await Promise.all([
+  const [products, orders, customers, sales, movements, fieldPicks, expenses] = await Promise.all([
     getProducts(),
     getOrders().catch(() => []),
     getCustomers().catch(() => []),
     listSales(1000).catch(() => []),
     getStockMovements(500).catch(() => []),
     getFieldPicks().catch(() => []),
+    listExpenses({ limit: 1000 }).catch(() => []),
   ]);
 
   return buildEnterpriseReportFromRawData(preset, customFrom, customTo, filters, {
@@ -43,5 +45,6 @@ export async function getEnterpriseReportClient(
     sales: asRaw(sales),
     movements: asRaw(movements),
     fieldPicks: asRaw(fieldPicks),
+    expenses: asRaw(expenses),
   });
 }

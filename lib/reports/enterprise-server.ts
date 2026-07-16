@@ -33,19 +33,27 @@ export async function getEnterpriseReport(
   const startTs = Timestamp.fromDate(fetchStart);
   const endTs = Timestamp.fromDate(range.end);
 
-  const [salesSnap, ordersSnap, productsSnap, customersSnap, movementsSnap, fieldPicksSnap] =
-    await Promise.all([
-      db.collection('sales').where('createdAt', '>=', startTs).where('createdAt', '<=', endTs).get(),
-      db.collection('orders').where('createdAt', '>=', startTs).where('createdAt', '<=', endTs).get(),
-      db.collection('products').get(),
-      db.collection('customers').get(),
-      db
-        .collection('stockMovements')
-        .where('createdAt', '>=', startTs)
-        .where('createdAt', '<=', endTs)
-        .get(),
-      db.collection('fieldPicks').get(),
-    ]);
+  const [
+    salesSnap,
+    ordersSnap,
+    productsSnap,
+    customersSnap,
+    movementsSnap,
+    fieldPicksSnap,
+    expensesSnap,
+  ] = await Promise.all([
+    db.collection('sales').where('createdAt', '>=', startTs).where('createdAt', '<=', endTs).get(),
+    db.collection('orders').where('createdAt', '>=', startTs).where('createdAt', '<=', endTs).get(),
+    db.collection('products').get(),
+    db.collection('customers').get(),
+    db
+      .collection('stockMovements')
+      .where('createdAt', '>=', startTs)
+      .where('createdAt', '<=', endTs)
+      .get(),
+    db.collection('fieldPicks').get(),
+    db.collection('expenses').where('date', '>=', startTs).where('date', '<=', endTs).get(),
+  ]);
 
   return buildEnterpriseReportFromRawData(preset, customFrom, customTo, filters, {
     sales: salesSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
@@ -54,5 +62,6 @@ export async function getEnterpriseReport(
     customers: customersSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     movements: movementsSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     fieldPicks: fieldPicksSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+    expenses: expensesSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
   });
 }

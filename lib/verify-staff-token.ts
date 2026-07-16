@@ -1,4 +1,4 @@
-import { isAdminEmail } from '@/lib/admin-auth';
+import { isAdminEmail } from '@/lib/admin-emails';
 import { getAdminAuth } from '@/lib/firebase-admin';
 import type { Permissions, StaffRole } from '@/lib/erp-types';
 import { getPermissionsForRole } from '@/lib/roles';

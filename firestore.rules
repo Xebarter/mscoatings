@@ -54,6 +54,28 @@ service cloud.firestore {
         && staffId == staffDocId(request.auth.token.email);
     }
 
+    // Expenses: creation/edits/deletion restricted to admin + manager roles;
+    // viewing restricted to whoever already has report access (admin, manager, inventory).
+    function staffRole() {
+      return get(staffDocPath()).data.role;
+    }
+
+    function isActiveStaffWithRole(roles) {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && exists(staffDocPath())
+        && get(staffDocPath()).data.active == true
+        && staffRole() in roles;
+    }
+
+    function canManageExpenses() {
+      return isAdmin() || isActiveStaffWithRole(['admin', 'manager']);
+    }
+
+    function canViewExpenses() {
+      return isAdmin() || isActiveStaffWithRole(['admin', 'manager', 'inventory']);
+    }
+
     function onlyStockChanged() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
         && request.resource.data.stock is number
@@ -175,6 +197,66 @@ service cloud.firestore {
         && request.resource.data.pickedBy == request.auth.token.email.lower();
     }
 
+    function validExpenseCategory(category) {
+      return category in [
+        'rent', 'utilities', 'salaries', 'transport', 'supplies',
+        'maintenance', 'marketing', 'taxes', 'other'
+      ];
+    }
+
+    function validExpensePaymentMethod(method) {
+      return method in ['cash', 'mobile_money', 'bank_transfer', 'card', 'online', 'credit'];
+    }
+
+    function validExpenseFields() {
+      return request.resource.data.keys().hasAll([
+          'date',
+          'category',
+          'purpose',
+          'amount',
+          'paymentMethod',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'date',
+          'category',
+          'purpose',
+          'amount',
+          'paymentMethod',
+          'payee',
+          'notes',
+          'recordedBy',
+          'createdAt'
+        ])
+        && request.resource.data.date is timestamp
+        && validExpenseCategory(request.resource.data.category)
+        && request.resource.data.purpose is string
+        && request.resource.data.purpose.size() > 0
+        && request.resource.data.purpose.size() <= 300
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.amount < 1000000000
+        && validExpensePaymentMethod(request.resource.data.paymentMethod)
+        && (!('payee' in request.resource.data)
+          || (request.resource.data.payee is string && request.resource.data.payee.size() <= 200))
+        && (!('notes' in request.resource.data)
+          || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+        && request.resource.data.recordedBy is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validNewExpense() {
+      return validExpenseFields()
+        && request.resource.data.recordedBy == request.auth.token.email.lower();
+    }
+
+    function validExpenseUpdate() {
+      return validExpenseFields()
+        && request.resource.data.recordedBy == resource.data.recordedBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
     function validFieldPickClose() {
       return resource.data.status == 'active'
         && request.resource.data.status == 'closed'
@@ -258,6 +340,13 @@ service cloud.firestore {
       allow create: if hasStaffAccess() && validNewFieldPick();
       allow update: if hasStaffAccess() && validFieldPickClose();
       allow delete: if isAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if canViewExpenses();
+      allow create: if canManageExpenses() && validNewExpense();
+      allow update: if canManageExpenses() && validExpenseUpdate();
+      allow delete: if canManageExpenses();
     }
 
     // Contact form messages — created via Admin SDK API; staff read/update via API too.

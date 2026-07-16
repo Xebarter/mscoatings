@@ -97,9 +97,11 @@ export function ChartPanel({
 export function RevenueLineChart({
   data,
   showProfit = false,
+  showExpenses = false,
 }: {
-  data: Array<{ date: string; revenue: number; profit?: number }>;
+  data: Array<{ date: string; revenue: number; profit?: number; expenses?: number }>;
   showProfit?: boolean;
+  showExpenses?: boolean;
 }) {
   const chart = useChartTheme();
   const layout = useChartLayout();
@@ -164,6 +166,18 @@ export function RevenueLineChart({
             dot={false}
             isAnimationActive={false}
             strokeDasharray="4 4"
+          />
+        )}
+        {showExpenses && (
+          <Line
+            type="monotone"
+            dataKey="expenses"
+            name="Expenses"
+            stroke={chart.colors[4]}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+            strokeDasharray="2 3"
           />
         )}
       </LineChart>

@@ -1,5 +1,5 @@
 import type { Staff, StaffRole } from '@/lib/erp-types';
-import { isAdminEmail } from '@/lib/admin-auth';
+import { isAdminEmail } from '@/lib/admin-emails';
 import { getAdminFirestore, getAdminTimestamp } from '@/lib/firebase-admin';
 
 function staffDocId(email: string): string {

@@ -3,6 +3,8 @@ import { requireStaffApi } from '@/lib/api-auth';
 import { countNewContactMessages } from '@/lib/messages-server';
 import { countPendingOrders } from '@/lib/orders-server';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const auth = await requireStaffApi(request);
   if ('error' in auth) return auth.error;

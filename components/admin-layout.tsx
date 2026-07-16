@@ -21,6 +21,7 @@ import {
   LogOut,
   Menu,
   Package,
+  Receipt,
   ScanBarcode,
   ShoppingBag,
   Warehouse,
@@ -37,6 +38,7 @@ export type AdminSection =
   | 'pos'
   | 'inventory'
   | 'fieldSales'
+  | 'expenses'
   | 'reports'
   | 'messages'
   | 'staff';
@@ -61,6 +63,7 @@ const navItems: {
   { id: 'inventory', label: 'Inventory', icon: Warehouse, href: '/admin/inventory' },
   { id: 'fieldSales', label: 'Field Sales', icon: Truck, href: '/admin/field-sales' },
   { id: 'orders', label: 'Orders', icon: ShoppingBag, href: '/admin/dashboard?tab=orders' },
+  { id: 'expenses', label: 'Expenses', icon: Receipt, href: '/admin/expenses' },
   { id: 'messages', label: 'Messages', icon: Inbox, href: '/admin/messages' },
   { id: 'reports', label: 'Reports', icon: BarChart3, href: '/admin/reports' },
   { id: 'staff', label: 'Staff Access', icon: Users, href: '/admin/staff' },
@@ -71,6 +74,7 @@ function resolveActiveSection(pathname: string, activeSection?: AdminSection): A
   if (pathname.startsWith('/admin/pos') || pathname.startsWith('/admin/sales')) return 'pos';
   if (pathname.startsWith('/admin/inventory')) return 'inventory';
   if (pathname.startsWith('/admin/field-sales')) return 'fieldSales';
+  if (pathname.startsWith('/admin/expenses')) return 'expenses';
   if (pathname.startsWith('/admin/reports')) return 'reports';
   if (pathname.startsWith('/admin/staff')) return 'staff';
   if (pathname.startsWith('/admin/messages')) return 'messages';

@@ -10,6 +10,8 @@ import {
 import { logStaffActivitySafe } from '@/lib/staff-activity-server';
 import type { StaffRole } from '@/lib/erp-types';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const auth = await requireStaffApi(request, 'manageStaff');
   if ('error' in auth) return auth.error;

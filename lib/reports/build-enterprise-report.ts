@@ -22,6 +22,7 @@ export interface EnterpriseRawData {
   customers: Array<{ id: string; data: Record<string, unknown> }>;
   movements: Array<{ id: string; data: Record<string, unknown> }>;
   fieldPicks: Array<{ id: string; data: Record<string, unknown> }>;
+  expenses: Array<{ id: string; data: Record<string, unknown> }>;
 }
 
 interface TransactionItem {
@@ -34,6 +35,23 @@ interface TransactionItem {
   costPrice?: number;
   lineTotal?: number;
   category?: string;
+}
+
+interface NormalizedExpense {
+  id: string;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+  date: Date;
+}
+
+interface ExpenseAggregate {
+  total: number;
+  cash: number;
+  mobileMoney: number;
+  bank: number;
+  byCategory: Map<string, number>;
+  byDate: Map<string, number>;
 }
 
 interface NormalizedTransaction {
@@ -145,6 +163,33 @@ function aggregateTransactions(
   }
 
   return { revenue, profit, count, refunds: { count: refundCount, amount: refundAmount } };
+}
+
+function aggregateExpenses(
+  expenses: NormalizedExpense[],
+  range: DateRange
+): ExpenseAggregate {
+  let total = 0;
+  let cash = 0;
+  let mobileMoney = 0;
+  let bank = 0;
+  const byCategory = new Map<string, number>();
+  const byDate = new Map<string, number>();
+
+  for (const expense of expenses) {
+    if (!inRange(expense.date, range)) continue;
+    total += expense.amount;
+    if (expense.paymentMethod === 'cash') cash += expense.amount;
+    else if (expense.paymentMethod === 'mobile_money') mobileMoney += expense.amount;
+    else if (expense.paymentMethod === 'bank_transfer' || expense.paymentMethod === 'card')
+      bank += expense.amount;
+
+    byCategory.set(expense.category, (byCategory.get(expense.category) ?? 0) + expense.amount);
+    const key = toDateKey(expense.date);
+    byDate.set(key, (byDate.get(key) ?? 0) + expense.amount);
+  }
+
+  return { total, cash, mobileMoney, bank, byCategory, byDate };
 }
 
 export function generateInsights(report: Omit<EnterpriseReport, 'insights'>): BusinessInsight[] {
@@ -370,6 +415,19 @@ export function buildEnterpriseReportFromRawData(
     });
   }
 
+  const normalizedExpenses: NormalizedExpense[] = [];
+  for (const { id, data: expense } of raw.expenses) {
+    const date = tsToDate(expense.date) ?? tsToDate(expense.createdAt);
+    if (!date) continue;
+    normalizedExpenses.push({
+      id,
+      amount: (expense.amount as number) ?? 0,
+      category: (expense.category as string) ?? 'other',
+      paymentMethod: (expense.paymentMethod as string) ?? 'cash',
+      date,
+    });
+  }
+
   const applyFilters = (tx: NormalizedTransaction): boolean => {
     if (filters.paymentMethod && tx.paymentMethod !== filters.paymentMethod) return false;
     if (filters.channel && tx.source !== filters.channel) return false;
@@ -387,6 +445,9 @@ export function buildEnterpriseReportFromRawData(
   const comparisonAgg = aggregateTransactions(filtered, comparisonRange);
   const yoyAgg = aggregateTransactions(filtered, yoyRange);
   const sparkline = buildSparkline(filtered, range);
+
+  const expensePeriodAgg = aggregateExpenses(normalizedExpenses, range);
+  const expenseComparisonAgg = aggregateExpenses(normalizedExpenses, comparisonRange);
 
   const todayRange = getDateRange('today');
   const weekRange = getDateRange('last7');
@@ -687,13 +748,19 @@ export function buildEnterpriseReportFromRawData(
     agentMap.set(pick.agentId as string, agent);
   });
 
-  const cashOnHand = paymentMap.get('cash')?.amount ?? 0;
-  const mobileMoneyBalance = paymentMap.get('mobile_money')?.amount ?? 0;
-  const bankBalance =
+  const cashSales = paymentMap.get('cash')?.amount ?? 0;
+  const mobileMoneySales = paymentMap.get('mobile_money')?.amount ?? 0;
+  const bankCardSales =
     (paymentMap.get('bank_transfer')?.amount ?? 0) + (paymentMap.get('card')?.amount ?? 0);
 
+  const cashOnHand = cashSales - expensePeriodAgg.cash;
+  const mobileMoneyBalance = mobileMoneySales - expensePeriodAgg.mobileMoney;
+  const bankBalance = bankCardSales - expensePeriodAgg.bank;
+
+  const netProfit = periodAgg.profit - expensePeriodAgg.total;
   const grossMargin =
     periodAgg.revenue > 0 ? (periodAgg.profit / periodAgg.revenue) * 100 : 0;
+  const netMargin = periodAgg.revenue > 0 ? (netProfit / periodAgg.revenue) * 100 : 0;
 
   const paymentDistribution = Array.from(paymentMap.entries())
     .map(([method, data]) => ({
@@ -744,8 +811,8 @@ export function buildEnterpriseReportFromRawData(
         previousValue: comparisonAgg.profit,
         changePercent: pctChange(periodAgg.profit, comparisonAgg.profit),
       }),
-      netProfit: kpi(periodAgg.profit, sparkline, {
-        note: 'Expenses module not configured — net profit equals gross profit',
+      netProfit: kpi(netProfit, sparkline, {
+        note: 'Gross profit minus expenses recorded in the selected period',
       }),
       transactions: kpi(periodAgg.count, [], {
         previousValue: comparisonAgg.count,
@@ -767,20 +834,24 @@ export function buildEnterpriseReportFromRawData(
       accountsReceivable: kpi(outstandingBalances),
       accountsPayable: unavailableKpi('Accounts payable module coming soon'),
       cashOnHand: kpi(cashOnHand, [], {
-        note: 'Estimated from cash sales in selected period',
+        note: 'Cash sales minus cash expenses in selected period',
       }),
       mobileMoneyBalance: kpi(mobileMoneyBalance, [], {
-        note: 'Mobile money collections in selected period',
+        note: 'Mobile money collections minus mobile money expenses in selected period',
       }),
       bankBalance: kpi(bankBalance, [], {
-        note: 'Bank & card collections in selected period',
+        note: 'Bank & card collections minus bank/card expenses in selected period',
       }),
       grossMargin: kpi(grossMargin),
-      netMargin: kpi(grossMargin, [], {
-        note: 'Equals gross margin until expenses are tracked',
+      netMargin: kpi(netMargin, [], {
+        note: 'Net profit as a percentage of revenue in selected period',
       }),
       refundAmount: kpi(periodAgg.refunds.amount),
       refundCount: kpi(periodAgg.refunds.count),
+      totalExpenses: kpi(expensePeriodAgg.total, [], {
+        previousValue: expenseComparisonAgg.total,
+        changePercent: pctChange(expensePeriodAgg.total, expenseComparisonAgg.total),
+      }),
     },
     sales: {
       dailyTrend: Array.from(dailyMap.entries())
@@ -872,18 +943,32 @@ export function buildEnterpriseReportFromRawData(
         .sort((a, b) => b.revenue - a.revenue),
     },
     financial: {
-      revenueVsExpenses: Array.from(dailyMap.entries())
-        .map(([date, data]) => ({
-          date,
-          revenue: data.revenue,
-          expenses: 0,
-          profit: data.profit,
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date)),
+      revenueVsExpenses: (() => {
+        const dates = new Set([...dailyMap.keys(), ...expensePeriodAgg.byDate.keys()]);
+        const rvCursor = new Date(range.start);
+        while (rvCursor <= range.end) {
+          dates.add(toDateKey(rvCursor));
+          rvCursor.setDate(rvCursor.getDate() + 1);
+        }
+        return Array.from(dates)
+          .map((date) => {
+            const daily = dailyMap.get(date);
+            return {
+              date,
+              revenue: daily?.revenue ?? 0,
+              expenses: expensePeriodAgg.byDate.get(date) ?? 0,
+              profit: daily?.profit ?? 0,
+            };
+          })
+          .sort((a, b) => a.date.localeCompare(b.date));
+      })(),
       profitTrend: Array.from(dailyMap.entries())
         .map(([date, data]) => ({ date, profit: data.profit }))
         .sort((a, b) => a.date.localeCompare(b.date)),
       paymentDistribution,
+      expensesByCategory: Array.from(expensePeriodAgg.byCategory.entries())
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount),
       receivables: outstandingBalances,
       payables: 0,
     },

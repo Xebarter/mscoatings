@@ -63,6 +63,7 @@ export interface EnterpriseReport {
     netMargin: KpiMetric;
     refundAmount: KpiMetric;
     refundCount: KpiMetric;
+    totalExpenses: KpiMetric;
   };
   sales: {
     dailyTrend: Array<{
@@ -143,6 +144,7 @@ export interface EnterpriseReport {
     revenueVsExpenses: Array<{ date: string; revenue: number; expenses: number; profit: number }>;
     profitTrend: Array<{ date: string; profit: number }>;
     paymentDistribution: Array<{ method: string; amount: number; percentage: number }>;
+    expensesByCategory: Array<{ category: string; amount: number }>;
     receivables: number;
     payables: number;
   };

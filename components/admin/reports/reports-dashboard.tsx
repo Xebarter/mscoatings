@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DatePreset } from '@/lib/reports/date-range';
 import type { EnterpriseReport } from '@/lib/reports/types';
 import { formatUgx } from '@/lib/currency';
+import { EXPENSE_CATEGORY_LABELS, type ExpenseCategory } from '@/lib/erp-types';
 import {
   Banknote,
   BarChart3,
@@ -462,7 +463,7 @@ function EmployeesSection({ report }: { report: EnterpriseReport }) {
 function FinancialSection({ report }: { report: EnterpriseReport }) {
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-5">
         <StatTile
           label="Gross Margin"
           value={`${report.kpis.grossMargin.value.toFixed(1)}%`}
@@ -478,6 +479,11 @@ function FinancialSection({ report }: { report: EnterpriseReport }) {
           }
         />
         <StatTile
+          label="Total Expenses"
+          value={formatUgx(report.kpis.totalExpenses.value)}
+          accent="negative"
+        />
+        <StatTile
           label="Net Profit"
           value={formatUgx(report.kpis.netProfit.value)}
           accent="positive"
@@ -485,14 +491,16 @@ function FinancialSection({ report }: { report: EnterpriseReport }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
-        <ChartPanel title="Revenue vs Expenses" subtitle="Expenses module coming soon">
+        <ChartPanel title="Revenue vs Expenses" subtitle="Revenue, profit, and expenses in selected period">
           <RevenueLineChart
             data={report.financial.revenueVsExpenses.map((d) => ({
               date: d.date,
               revenue: d.revenue,
               profit: d.profit,
+              expenses: d.expenses,
             }))}
             showProfit
+            showExpenses
           />
         </ChartPanel>
         <ChartPanel title="Profit Trend">
@@ -505,16 +513,27 @@ function FinancialSection({ report }: { report: EnterpriseReport }) {
         </ChartPanel>
       </div>
 
-      <ChartPanel title="Payment Method Distribution">
-        <DataTable
-          headers={['Method', 'Amount', 'Share']}
-          rows={report.financial.paymentDistribution.map((p) => [
-            p.method,
-            formatUgx(p.amount),
-            `${p.percentage.toFixed(1)}%`,
-          ])}
-        />
-      </ChartPanel>
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
+        <ChartPanel title="Payment Method Distribution">
+          <DataTable
+            headers={['Method', 'Amount', 'Share']}
+            rows={report.financial.paymentDistribution.map((p) => [
+              p.method,
+              formatUgx(p.amount),
+              `${p.percentage.toFixed(1)}%`,
+            ])}
+          />
+        </ChartPanel>
+        <ChartPanel title="Expenses by Category" subtitle="Selected period breakdown">
+          <DataTable
+            headers={['Category', 'Amount']}
+            rows={report.financial.expensesByCategory.map((e) => [
+              EXPENSE_CATEGORY_LABELS[e.category as ExpenseCategory] ?? e.category,
+              formatUgx(e.amount),
+            ])}
+          />
+        </ChartPanel>
+      </div>
     </div>
   );
 }

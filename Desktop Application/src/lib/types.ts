@@ -199,6 +199,55 @@ export interface Permissions {
   manageFieldSales: boolean;
   accessPos: boolean;
   viewMessages: boolean;
+  manageExpenses: boolean;
+}
+
+export type ExpenseCategory =
+  | 'rent'
+  | 'utilities'
+  | 'salaries'
+  | 'transport'
+  | 'supplies'
+  | 'maintenance'
+  | 'marketing'
+  | 'taxes'
+  | 'other';
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'rent',
+  'utilities',
+  'salaries',
+  'transport',
+  'supplies',
+  'maintenance',
+  'marketing',
+  'taxes',
+  'other',
+];
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  rent: 'Rent',
+  utilities: 'Utilities',
+  salaries: 'Salaries & Wages',
+  transport: 'Transport & Fuel',
+  supplies: 'Supplies',
+  maintenance: 'Maintenance & Repairs',
+  marketing: 'Marketing',
+  taxes: 'Taxes & Licenses',
+  other: 'Other',
+};
+
+export interface Expense {
+  id: string;
+  date: Timestamp;
+  category: ExpenseCategory;
+  purpose: string;
+  amount: number;
+  paymentMethod: SalePaymentMethod;
+  payee?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: Timestamp;
 }
 
 export interface ReportSummary {

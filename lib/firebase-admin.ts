@@ -1,13 +1,22 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
 const FIREBASE_ADMIN_MISSING_MESSAGE =
-  'Firebase Admin is not configured. Either set FIREBASE_SERVICE_ACCOUNT_PATH to a downloaded key file (e.g. ./ms-coatings-service-account.json), or set FIREBASE_SERVICE_ACCOUNT_JSON to the full JSON string. Get the key from Firebase Console → Project settings → Service accounts → Generate new private key.';
+  'Firebase Admin is not configured. On Vercel set FIREBASE_SERVICE_ACCOUNT_JSON to the full service-account JSON (one line). Locally you can use FIREBASE_SERVICE_ACCOUNT_PATH=./ms-coatings-service-account.json instead.';
+
+let cachedApp: App | null = null;
+let initError: Error | null = null;
 
 function loadServiceAccountRaw(): string {
+  // Prefer inline JSON in production (Vercel has no local key file).
+  const inline = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+  if (inline) {
+    return inline;
+  }
+
   const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim();
   if (filePath) {
     try {
@@ -15,14 +24,9 @@ function loadServiceAccountRaw(): string {
       return readFileSync(absolutePath, 'utf8');
     } catch {
       throw new Error(
-        `Could not read FIREBASE_SERVICE_ACCOUNT_PATH at "${filePath}". Download your service account JSON from Firebase Console and save it at that path.`
+        `Could not read FIREBASE_SERVICE_ACCOUNT_PATH at "${filePath}". On Vercel use FIREBASE_SERVICE_ACCOUNT_JSON instead of a file path.`
       );
     }
-  }
-
-  const inline = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
-  if (inline) {
-    return inline;
   }
 
   throw new Error(FIREBASE_ADMIN_MISSING_MESSAGE);
@@ -36,7 +40,7 @@ function parseServiceAccountJson(raw: string) {
 
   if (trimmed.includes('...')) {
     throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON looks like a placeholder (contains "..."). Download the real service account JSON from Firebase Console, save it as ms-coatings-service-account.json in the project root, and set FIREBASE_SERVICE_ACCOUNT_PATH=./ms-coatings-service-account.json in .env'
+      'FIREBASE_SERVICE_ACCOUNT_JSON looks like a placeholder (contains "..."). Paste the full downloaded service account JSON.'
     );
   }
 
@@ -44,21 +48,30 @@ function parseServiceAccountJson(raw: string) {
     return JSON.parse(trimmed) as Parameters<typeof cert>[0];
   } catch {
     throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON. Prefer FIREBASE_SERVICE_ACCOUNT_PATH=./ms-coatings-service-account.json and save the downloaded key file in the project root instead.'
+      'FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON. Paste the full key on one line in Vercel env vars.'
     );
   }
 }
 
-function initializeFirebaseAdmin() {
+function initializeFirebaseAdmin(): App {
+  if (cachedApp) return cachedApp;
   if (getApps().length > 0) {
-    return getApps()[0]!;
+    cachedApp = getApps()[0]!;
+    return cachedApp;
   }
+  if (initError) throw initError;
 
-  const serviceAccount = parseServiceAccountJson(loadServiceAccountRaw());
-
-  return initializeApp({
-    credential: cert(serviceAccount),
-  });
+  try {
+    const serviceAccount = parseServiceAccountJson(loadServiceAccountRaw());
+    cachedApp = initializeApp({
+      credential: cert(serviceAccount),
+    });
+    return cachedApp;
+  } catch (error) {
+    initError =
+      error instanceof Error ? error : new Error(FIREBASE_ADMIN_MISSING_MESSAGE);
+    throw initError;
+  }
 }
 
 export function getAdminFirestore() {

@@ -11,6 +11,8 @@ import type {
   StaffActivityLog,
 } from '@/lib/erp-types';
 
+export const runtime = 'nodejs';
+
 const ACTIONS = new Set<StaffActivityAction>([
   'sale.create',
   'sale.void',
@@ -31,6 +33,9 @@ const ACTIONS = new Set<StaffActivityAction>([
   'customer.create',
   'customer.update',
   'customer.payment',
+  'expense.create',
+  'expense.update',
+  'expense.delete',
 ]);
 
 const CHANNELS = new Set<StaffActivityChannel>([

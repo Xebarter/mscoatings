@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "wipe:ops:dry": "npx tsx --env-file=.env scripts/wipe-operational-data.ts",

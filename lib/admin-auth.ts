@@ -1,21 +1,11 @@
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from './firebase';
+import { isAdminEmail } from './admin-emails';
+
+export { getAdminEmails, isAdminEmail } from './admin-emails';
 
 export const ADMIN_ACCESS_DENIED_MESSAGE =
   'This account does not have admin access. Ask a Super Admin to grant Admin access, or use an approved Super Admin email.';
-
-export function getAdminEmails(): string[] {
-  const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? '';
-  return raw
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return getAdminEmails().includes(email.trim().toLowerCase());
-}
 
 export function userHasAdminRole(user: User): boolean {
   return isAdminEmail(user.email);

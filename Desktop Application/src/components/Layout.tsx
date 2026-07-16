@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  Receipt,
   ScanBarcode,
   ShoppingBag,
   Truck,
@@ -41,6 +42,7 @@ const navItems: {
   { to: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'adjustStock' },
   { to: '/field-sales', label: 'Field Sales', icon: Truck, permission: 'manageFieldSales' },
   { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
+  { to: '/expenses', label: 'Expenses', icon: Receipt, permission: 'viewReports' },
   { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages', permission: 'viewMessages' },
   { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'viewReports' },
 ];

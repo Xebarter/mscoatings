@@ -21,6 +21,7 @@ import FieldPickDetailPage from '@/pages/FieldPickDetail';
 import FieldAgentDetailPage from '@/pages/FieldAgentDetail';
 import ReportsPage from '@/pages/Reports';
 import MessagesPage from '@/pages/Messages';
+import ExpensesPage from '@/pages/Expenses';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="field-sales/picks/:id" element={<FieldPickDetailPage />} />
           <Route path="field-sales/agents/:id" element={<FieldAgentDetailPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="expenses" element={<ExpensesPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

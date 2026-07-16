@@ -107,6 +107,55 @@ export interface Permissions {
   manageFieldSales: boolean;
   accessPos: boolean;
   viewMessages: boolean;
+  manageExpenses: boolean;
+}
+
+export type ExpenseCategory =
+  | 'rent'
+  | 'utilities'
+  | 'salaries'
+  | 'transport'
+  | 'supplies'
+  | 'maintenance'
+  | 'marketing'
+  | 'taxes'
+  | 'other';
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'rent',
+  'utilities',
+  'salaries',
+  'transport',
+  'supplies',
+  'maintenance',
+  'marketing',
+  'taxes',
+  'other',
+];
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  rent: 'Rent',
+  utilities: 'Utilities',
+  salaries: 'Salaries & Wages',
+  transport: 'Transport & Fuel',
+  supplies: 'Supplies',
+  maintenance: 'Maintenance & Repairs',
+  marketing: 'Marketing',
+  taxes: 'Taxes & Licenses',
+  other: 'Other',
+};
+
+export interface Expense {
+  id: string;
+  date: Timestamp;
+  category: ExpenseCategory;
+  purpose: string;
+  amount: number;
+  paymentMethod: SalePaymentMethod;
+  payee?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: Timestamp;
 }
 
 export type ContactMessageStatus = 'new' | 'read' | 'replied' | 'archived';
@@ -130,14 +179,17 @@ export type StaffActivityAction =
   | 'staff.delete'
   | 'customer.create'
   | 'customer.update'
-  | 'customer.payment';
+  | 'customer.payment'
+  | 'expense.create'
+  | 'expense.update'
+  | 'expense.delete';
 
 export type StaffActivityChannel = 'web_admin' | 'desktop' | 'api' | 'system';
 
 export interface StaffActivityLog {
   id: string;
   action: StaffActivityAction;
-  category: 'pos' | 'inventory' | 'orders' | 'messages' | 'field_sales' | 'products' | 'staff' | 'customers' | 'other';
+  category: 'pos' | 'inventory' | 'orders' | 'messages' | 'field_sales' | 'products' | 'staff' | 'customers' | 'expenses' | 'other';
   summary: string;
   actorEmail: string;
   actorUid?: string;

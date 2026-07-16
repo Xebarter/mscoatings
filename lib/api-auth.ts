@@ -32,7 +32,8 @@ export async function requireStaffApi(
     console.error('Staff API auth error:', error);
     const message =
       error instanceof Error ? error.message : 'Authentication failed';
-    const isConfigError = message.includes('FIREBASE_SERVICE_ACCOUNT_JSON');
+    const isConfigError =
+      /FIREBASE_SERVICE_ACCOUNT|Firebase Admin is not configured/i.test(message);
     return {
       error: NextResponse.json(
         { error: message },

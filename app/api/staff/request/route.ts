@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken } from '@/lib/verify-staff-token';
-import { isAdminEmail } from '@/lib/admin-auth';
+import { isAdminEmail } from '@/lib/admin-emails';
 import { requestStaffAccess } from '@/lib/staff-server';
+
+export const runtime = 'nodejs';
 
 interface FirebaseLookupResponse {
   users?: Array<{ email?: string; localId?: string }>;

@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep firebase-admin out of the Turbopack/webpack server bundle — bundling it
+  // crashes Admin API routes on Vercel with an HTML 500 (no JSON body).
+  serverExternalPackages: ['firebase-admin'],
   typescript: {
     ignoreBuildErrors: true,
   },

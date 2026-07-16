@@ -14,7 +14,10 @@ export type DesktopActivityAction =
   | 'field_agent.create'
   | 'field_agent.update'
   | 'field_pick.create'
-  | 'field_pick.submit_report';
+  | 'field_pick.submit_report'
+  | 'expense.create'
+  | 'expense.update'
+  | 'expense.delete';
 
 /** Fire-and-forget activity log for desktop mutations (via main-process API proxy). */
 export function logDesktopActivity(input: {
