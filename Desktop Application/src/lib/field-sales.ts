@@ -46,6 +46,7 @@ import {
   type PendingDocOp,
 } from './offline/pending-writes';
 import { logDesktopActivity } from './staff-activity';
+import { getFieldPickUnitPrice } from './product-pricing';
 
 function generateReceiptNumber(): string {
   const now = new Date();
@@ -82,9 +83,9 @@ async function requireCashierUid(): Promise<string> {
 }
 
 async function loadProduct(productId: string): Promise<Product> {
-  const mirrored = await localGet<{ items: Product[] }>('products');
-  const fromMirror = mirrored?.items?.find((p) => p.id === productId);
-  if (fromMirror) return fromMirror;
+  // Prefer revived mirror via getProductById so fieldPickPrice is normalized offline.
+  const fromId = await getProductById(productId);
+  if (fromId) return fromId;
 
   if (!isOnline()) {
     throw new Error(`Product not available offline: ${productId}`);
@@ -92,13 +93,17 @@ async function loadProduct(productId: string): Promise<Product> {
 
   try {
     const snap = await getDocHybrid(doc(db, 'products', productId));
-    if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
+    if (snap.exists()) {
+      const product = { id: snap.id, ...snap.data() } as Product;
+      return {
+        ...product,
+        fieldPickPrice: getFieldPickUnitPrice(product),
+      };
+    }
   } catch {
     /* fall through */
   }
-  const product = await getProductById(productId);
-  if (!product) throw new Error(`Product not found: ${productId}`);
-  return product;
+  throw new Error(`Product not found: ${productId}`);
 }
 
 async function loadPick(pickId: string): Promise<FieldPick> {
@@ -141,7 +146,11 @@ async function patchLocalProductStock(
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
   const next = (cached?.items ?? []).map((p) => {
     const match = updates.find((u) => u.productId === p.id);
-    return match ? { ...p, stock: match.stock } : p;
+    const withPrice = {
+      ...p,
+      fieldPickPrice: p.fieldPickPrice ?? p.price ?? 0,
+    };
+    return match ? { ...withPrice, stock: match.stock } : withPrice;
   });
   await localSet('products', { items: next, savedAt: Date.now() });
 }
@@ -525,8 +534,8 @@ export async function createFieldPickClient(
         productName: product.name,
         barcode: product.barcode ?? '',
         quantityPicked: cartItem.quantity,
-        unitPrice: product.price ?? 0,
-        costPrice: product.costPrice ?? 0,
+          unitPrice: getFieldPickUnitPrice(product),
+          costPrice: product.costPrice ?? 0,
       });
 
       stockUpdates.push({

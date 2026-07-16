@@ -19,6 +19,7 @@ import {
 import { getProductByBarcode, getProducts } from '@/lib/firestore';
 import type { FieldAgent, Product } from '@/lib/types';
 import { formatUgx } from '@/lib/currency';
+import { getFieldPickUnitPrice } from '@/lib/product-pricing';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOnline } from '@/hooks/useOnline';
 import CameraScannerModal from '@/components/CameraScannerModal';
@@ -154,7 +155,7 @@ export default function NewPickModal({
   }, [products, search]);
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + getFieldPickUnitPrice(item.product) * item.quantity,
     0
   );
 
@@ -394,7 +395,7 @@ export default function NewPickModal({
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {product.stock} in stock · {formatUgx(product.price)}
+                          {product.stock} in stock · {formatUgx(getFieldPickUnitPrice(product))}
                         </p>
                       </div>
                       <Plus size={16} className="text-violet-600" />
@@ -423,7 +424,7 @@ export default function NewPickModal({
                             {item.product.name}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {formatUgx(item.product.price)} each
+                            {formatUgx(getFieldPickUnitPrice(item.product))} each
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

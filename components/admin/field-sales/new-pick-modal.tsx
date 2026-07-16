@@ -29,6 +29,10 @@ interface CartItem {
   quantity: number;
 }
 
+function fieldPickUnitPrice(product: Product): number {
+  return product.fieldPickPrice ?? product.price ?? 0;
+}
+
 interface NewPickModalProps {
   open: boolean;
   onClose: () => void;
@@ -154,7 +158,7 @@ export default function NewPickModal({
   }, [products, search]);
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + fieldPickUnitPrice(item.product) * item.quantity,
     0
   );
 
@@ -385,7 +389,7 @@ export default function NewPickModal({
                             {product.name}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {product.stock} in stock · {formatUgx(product.price)}
+                            {product.stock} in stock · {formatUgx(fieldPickUnitPrice(product))}
                           </p>
                         </div>
                         <Plus size={16} className="text-violet-600" />
@@ -414,7 +418,7 @@ export default function NewPickModal({
                               {item.product.name}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {formatUgx(item.product.price)} each
+                              {formatUgx(fieldPickUnitPrice(item.product))} each
                             </p>
                           </div>
                           <div className="flex items-center gap-2">

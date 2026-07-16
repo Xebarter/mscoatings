@@ -338,7 +338,7 @@ export async function createFieldPickClient(
           productName: product.name,
           barcode: product.barcode ?? '',
           quantityPicked: cartItem.quantity,
-          unitPrice: product.price ?? 0,
+          unitPrice: product.fieldPickPrice ?? product.price ?? 0,
           costPrice: product.costPrice ?? 0,
         });
 

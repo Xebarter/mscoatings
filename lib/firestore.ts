@@ -38,6 +38,8 @@ export interface Product {
   sizeVolume?: string;
   packagingUnit?: string;
   costPrice?: number;
+  /** Price used when field agents pick products; defaults to `price`. */
+  fieldPickPrice?: number;
   reorderLevel?: number;
 }
 
@@ -126,6 +128,7 @@ export async function addProduct(productData: Omit<Product, 'id' | 'createdAt'>)
         ...productData,
         reorderLevel: productData.reorderLevel ?? 5,
         costPrice: productData.costPrice ?? 0,
+        fieldPickPrice: productData.fieldPickPrice ?? productData.price,
         createdAt: Timestamp.now(),
       }) as Omit<Product, 'id'>
     );

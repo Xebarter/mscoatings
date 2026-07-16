@@ -142,6 +142,7 @@ function serializeTimestamp(value: unknown): { seconds: number; nanoseconds: num
 function serializeProducts(items: Product[]) {
   return items.map((p) => ({
     ...p,
+    fieldPickPrice: p.fieldPickPrice ?? p.price ?? 0,
     createdAt: serializeTimestamp(p.createdAt),
   }));
 }
@@ -254,6 +255,8 @@ function reviveProducts(items: Product[]): Product[] {
   return items.map((p) => ({
     ...p,
     createdAt: reviveTimestamp(p.createdAt) as Product['createdAt'],
+    // Legacy offline mirrors may lack fieldPickPrice — default to retail price.
+    fieldPickPrice: p.fieldPickPrice ?? p.price ?? 0,
   }));
 }
 
@@ -428,6 +431,7 @@ export async function addProduct(
       ...productData,
       reorderLevel: productData.reorderLevel ?? 5,
       costPrice: productData.costPrice ?? 0,
+      fieldPickPrice: productData.fieldPickPrice ?? productData.price,
       createdAt,
     }) as Omit<Product, 'id'>;
     const docRef = doc(productsCollection);
@@ -482,12 +486,29 @@ export async function updateProduct(
         /* continue */
       }
     }
+
+    const normalizedUpdates: Partial<Omit<Product, 'id' | 'createdAt'>> = {
+      ...updates,
+    };
+    if (updates.fieldPickPrice !== undefined) {
+      normalizedUpdates.fieldPickPrice =
+        updates.fieldPickPrice || updates.price || 0;
+    }
+
     await patchLocalProducts((items) =>
-      items.map((p) => (p.id === productId ? { ...p, ...updates } : p))
+      items.map((p) => {
+        if (p.id !== productId) return p;
+        const merged = { ...p, ...normalizedUpdates };
+        // Keep offline mirror pick-ready even for legacy products missing the field.
+        if (merged.fieldPickPrice == null) {
+          merged.fieldPickPrice = merged.price ?? 0;
+        }
+        return merged;
+      })
     );
 
     const cleanUpdates = omitUndefinedFields(
-      updates as Record<string, unknown>
+      normalizedUpdates as Record<string, unknown>
     ) as Partial<Omit<Product, 'id' | 'createdAt'>>;
 
     const { syncDocOps } = await import('./offline/flush-queue');
@@ -514,6 +535,7 @@ export async function updateProduct(
       resourceId: productId,
       metrics: {
         price: updates.price ?? null,
+        fieldPickPrice: normalizedUpdates.fieldPickPrice ?? null,
         stock: updates.stock ?? null,
         category: updates.category ?? null,
       },

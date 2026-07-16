@@ -36,6 +36,8 @@ export interface Product {
   sku?: string;
   brand?: string;
   costPrice?: number;
+  /** Price used when field agents pick products; defaults to `price`. */
+  fieldPickPrice?: number;
   reorderLevel?: number;
 }
 

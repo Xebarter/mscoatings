@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, price, category, stock, image } = body;
+    const { name, description, price, category, stock, image, fieldPickPrice, costPrice } = body;
 
     // Validation
     if (!name || price === undefined || !image) {
@@ -68,10 +68,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parsedPrice = parseFloat(price);
     const docRef = await addDoc(productsCollection, {
       name,
       description: description || '',
-      price: parseFloat(price),
+      price: parsedPrice,
+      fieldPickPrice:
+        fieldPickPrice !== undefined && fieldPickPrice !== ''
+          ? parseFloat(fieldPickPrice)
+          : parsedPrice,
+      ...(costPrice !== undefined && costPrice !== ''
+        ? { costPrice: parseFloat(costPrice) }
+        : {}),
       category: category || 'Uncategorized',
       stock: parseInt(stock) || 0,
       image,
@@ -85,7 +93,11 @@ export async function POST(request: NextRequest) {
         id: docRef.id,
         name,
         description,
-        price,
+        price: parsedPrice,
+        fieldPickPrice:
+          fieldPickPrice !== undefined && fieldPickPrice !== ''
+            ? parseFloat(fieldPickPrice)
+            : parsedPrice,
         category,
         stock,
         image,
