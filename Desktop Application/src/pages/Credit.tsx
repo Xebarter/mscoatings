@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useOnline } from '@/hooks/useOnline';
 import { formatUgx } from '@/lib/currency';
 import {
   listCreditCustomers,
@@ -58,6 +59,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function CreditPage() {
+  const online = useOnline();
   const { can, loading: permissionsLoading } = usePermissions();
   const canManage = can('manageCredit');
   const canView = canManage || can('manageCustomers') || can('viewReports') || can('accessPos');
@@ -153,7 +155,11 @@ export default function CreditPage() {
     setSubmitting(true);
     try {
       await registerCreditCustomer(input);
-      toast.success('Customer registered');
+      toast.success(
+        online
+          ? 'Customer registered'
+          : 'Customer saved offline — will sync when online'
+      );
       setShowForm(false);
       setForm(EMPTY_FORM);
       await loadData();
@@ -182,6 +188,12 @@ export default function CreditPage() {
 
   return (
     <div className="space-y-6">
+      {!online && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You are offline. Credit actions are saved locally and will sync when you reconnect.
+          Connect once first so customers, purchases, and products are cached.
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Credit</h1>

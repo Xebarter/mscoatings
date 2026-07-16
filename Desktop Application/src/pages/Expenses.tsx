@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useOnline } from '@/hooks/useOnline';
 import { formatUgx } from '@/lib/currency';
 import { addExpense, deleteExpense, listExpenses, updateExpense, type ExpenseInput } from '@/lib/expenses';
 import {
@@ -81,6 +82,7 @@ function PaymentMethodIcon({ method }: { method: SalePaymentMethod }) {
 }
 
 export default function ExpensesPage() {
+  const online = useOnline();
   const { can, loading: permissionsLoading } = usePermissions();
   const canManage = can('manageExpenses');
   const canView = can('viewReports') || canManage;
@@ -161,10 +163,14 @@ export default function ExpensesPage() {
     try {
       if (editing) {
         await updateExpense(editing.id, input);
-        toast.success('Expense updated');
+        toast.success(
+          online ? 'Expense updated' : 'Expense updated offline — will sync when online'
+        );
       } else {
         await addExpense(input);
-        toast.success('Expense recorded');
+        toast.success(
+          online ? 'Expense recorded' : 'Expense saved offline — will sync when online'
+        );
       }
       closeForm();
       await loadData();
@@ -184,7 +190,9 @@ export default function ExpensesPage() {
         amount: deleteTarget.amount,
       });
       setExpenses((prev) => prev.filter((e) => e.id !== deleteTarget.id));
-      toast.success('Expense deleted');
+      toast.success(
+        online ? 'Expense deleted' : 'Expense deleted offline — will sync when online'
+      );
       setDeleteTarget(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete expense');
@@ -252,6 +260,12 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6">
+      {!online && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You are offline. Expenses are saved locally and will sync when you reconnect.
+          Connect once first so your expense history is cached.
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Expenses</h1>

@@ -15,12 +15,20 @@ export default function PhoneLinks({
   return (
     <div
       className={cn(
-        layout === 'stack' ? 'space-y-1' : 'flex flex-wrap gap-x-3 gap-y-1',
+        // When stacked, ensure phone numbers render on separate lines.
+        // (Default inline anchors + `space-y` can still appear "too close".)
+        layout === 'stack'
+          ? 'flex flex-col gap-y-2'
+          : 'flex flex-wrap gap-x-4 gap-y-2',
         className
       )}
     >
       {BUSINESS_PHONES.map((phone) => (
-        <a key={phone.tel} href={getTelHref(phone.tel)} className={linkClassName}>
+        <a
+          key={phone.tel}
+          href={getTelHref(phone.tel)}
+          className={cn('block', linkClassName)}
+        >
           {phone.display}
         </a>
       ))}

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useOnline } from '@/hooks/useOnline';
 import { formatUgx } from '@/lib/currency';
 import { getProducts, type Product } from '@/lib/firestore';
 import {
@@ -81,6 +82,7 @@ interface CartLine {
 
 export default function CreditCustomerDetailPage() {
   const { id: customerId } = useParams<{ id: string }>();
+  const online = useOnline();
   const { can, loading: permissionsLoading } = usePermissions();
   const canManage = can('manageCredit');
   const canView = canManage || can('manageCustomers') || can('viewReports') || can('accessPos');
@@ -245,7 +247,11 @@ export default function CreditCustomerDetailPage() {
           notes: pickNotes.trim() || undefined,
         }
       );
-      toast.success('Products picked on credit');
+      toast.success(
+        online
+          ? 'Products picked on credit'
+          : 'Purchase saved offline — will sync when online'
+      );
       closeModal();
       await loadData();
     } catch (error) {
@@ -402,6 +408,12 @@ export default function CreditCustomerDetailPage() {
 
   return (
     <div className="space-y-6">
+      {!online && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You are offline. Credit actions on this account are saved locally and will sync when
+          you reconnect.
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link

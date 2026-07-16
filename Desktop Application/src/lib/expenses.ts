@@ -1,8 +1,21 @@
-import { collection, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, where, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  query,
+  orderBy,
+  limit,
+  where,
+  Timestamp,
+} from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { ensureFirestoreAuthReady, getOfflineSession } from './admin-auth';
-import { toFirestoreError } from './firestore';
-import { getDocsHybrid } from './offline/firestore-reads';
+import { getExpenses, toFirestoreError } from './firestore';
+import { isOnline } from './offline/connectivity';
+import { withTimeout } from './offline/firestore-reads';
+import { localGet, localSet } from './offline/local-store';
+import { LOCAL_EXPENSES_RETENTION } from './offline/limits';
+import { syncDocOps } from './offline/flush-queue';
+import { serializeDeep, stampTimestamp } from './offline/pending-writes';
 import { logDesktopActivity } from './staff-activity';
 import type { Expense, ExpenseCategory, SalePaymentMethod } from './types';
 
@@ -13,6 +26,12 @@ async function resolveEmail(): Promise<string> {
   const session = await getOfflineSession();
   if (session?.email) return session.email.toLowerCase();
   throw new Error('You must be signed in to manage expenses.');
+}
+
+async function patchLocalExpenses(mutator: (items: Expense[]) => Expense[]) {
+  const cached = await localGet<{ items: Expense[]; savedAt: number }>('expenses');
+  const items = mutator(cached?.items ?? []).slice(0, LOCAL_EXPENSES_RETENTION);
+  await localSet('expenses', { items, savedAt: Date.now() });
 }
 
 export interface ExpenseInput {
@@ -45,11 +64,18 @@ function validateExpenseInput(input: ExpenseInput) {
 
 export async function addExpense(input: ExpenseInput): Promise<Expense> {
   validateExpenseInput(input);
-  await ensureFirestoreAuthReady();
+  if (isOnline()) {
+    try {
+      await withTimeout(ensureFirestoreAuthReady(), 2_000);
+    } catch {
+      /* continue offline */
+    }
+  }
   const email = await resolveEmail();
 
   try {
     const createdAt = Timestamp.now();
+    const expenseRef = doc(expensesCollection);
     const data = {
       date: Timestamp.fromDate(input.date),
       category: input.category,
@@ -62,21 +88,44 @@ export async function addExpense(input: ExpenseInput): Promise<Expense> {
       createdAt,
     };
 
-    const docRef = await addDoc(expensesCollection, data);
+    const expense: Expense = { id: expenseRef.id, ...data };
+
+    await patchLocalExpenses((items) => [
+      {
+        ...expense,
+        createdAt: stampTimestamp(createdAt) as unknown as Expense['createdAt'],
+        date: stampTimestamp(data.date) as unknown as Expense['date'],
+      },
+      ...items,
+    ]);
+
+    await syncDocOps({
+      id: `expense-create-${expenseRef.id}`,
+      kind: 'expense.create',
+      ops: [
+        {
+          op: 'set',
+          collection: 'expenses',
+          docId: expenseRef.id,
+          data: serializeDeep(data) as Record<string, unknown>,
+        },
+      ],
+    });
 
     logDesktopActivity({
       action: 'expense.create',
       summary: `Expense recorded · ${input.category} · UGX ${input.amount.toLocaleString()}`,
       resourceType: 'expense',
-      resourceId: docRef.id,
+      resourceId: expenseRef.id,
       metrics: {
         category: input.category,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
+        offline: !isOnline(),
       },
     });
 
-    return { id: docRef.id, ...data } as Expense;
+    return expense;
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -84,18 +133,56 @@ export async function addExpense(input: ExpenseInput): Promise<Expense> {
 
 export async function updateExpense(expenseId: string, input: ExpenseInput): Promise<void> {
   validateExpenseInput(input);
-  await ensureFirestoreAuthReady();
+  if (isOnline()) {
+    try {
+      await withTimeout(ensureFirestoreAuthReady(), 2_000);
+    } catch {
+      /* continue offline */
+    }
+  }
 
   try {
-    const expenseRef = doc(expensesCollection, expenseId);
-    await updateDoc(expenseRef, {
-      date: Timestamp.fromDate(input.date),
+    const cached = await localGet<{ items: Expense[] }>('expenses');
+    const existing = cached?.items?.find((e) => e.id === expenseId);
+    if (!existing) {
+      throw new Error('Expense not found offline. Sync online once to refresh.');
+    }
+
+    const dateTs = Timestamp.fromDate(input.date);
+    const updates = {
+      date: dateTs,
       category: input.category,
       purpose: input.purpose.trim(),
       amount: input.amount,
       paymentMethod: input.paymentMethod,
       ...(input.payee?.trim() ? { payee: input.payee.trim() } : {}),
       ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
+    };
+
+    await patchLocalExpenses((items) =>
+      items.map((e) =>
+        e.id === expenseId
+          ? {
+              ...e,
+              ...updates,
+              date: stampTimestamp(dateTs) as unknown as Expense['date'],
+            }
+          : e
+      )
+    );
+
+    await syncDocOps({
+      id: `expense-update-${expenseId}`,
+      kind: 'expense.update',
+      ops: [
+        {
+          op: 'set',
+          collection: 'expenses',
+          docId: expenseId,
+          data: serializeDeep(updates) as Record<string, unknown>,
+          merge: true,
+        },
+      ],
     });
 
     logDesktopActivity({
@@ -107,6 +194,7 @@ export async function updateExpense(expenseId: string, input: ExpenseInput): Pro
         category: input.category,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
+        offline: !isOnline(),
       },
     });
   } catch (error) {
@@ -118,10 +206,28 @@ export async function deleteExpense(
   expenseId: string,
   meta?: { category?: string; amount?: number }
 ): Promise<void> {
-  await ensureFirestoreAuthReady();
+  if (isOnline()) {
+    try {
+      await withTimeout(ensureFirestoreAuthReady(), 2_000);
+    } catch {
+      /* continue offline */
+    }
+  }
 
   try {
-    await deleteDoc(doc(expensesCollection, expenseId));
+    await patchLocalExpenses((items) => items.filter((e) => e.id !== expenseId));
+
+    await syncDocOps({
+      id: `expense-delete-${expenseId}`,
+      kind: 'expense.delete',
+      ops: [
+        {
+          op: 'delete',
+          collection: 'expenses',
+          docId: expenseId,
+        },
+      ],
+    });
 
     logDesktopActivity({
       action: 'expense.delete',
@@ -131,6 +237,7 @@ export async function deleteExpense(
       metrics: {
         ...(meta?.category ? { category: meta.category } : {}),
         ...(meta?.amount !== undefined ? { amount: meta.amount } : {}),
+        offline: !isOnline(),
       },
     });
   } catch (error) {
@@ -144,28 +251,48 @@ export async function listExpenses(options?: {
   limit?: number;
 }): Promise<Expense[]> {
   try {
-    await ensureFirestoreAuthReady();
+    if (isOnline()) {
+      try {
+        await withTimeout(ensureFirestoreAuthReady(), 2_000);
+      } catch {
+        /* fall through to mirror */
+      }
+    }
+
+    let expenses = await getExpenses();
     const max = options?.limit ?? 1000;
 
-    const constraints = [] as ReturnType<typeof where>[];
     if (options?.from) {
-      constraints.push(where('date', '>=', Timestamp.fromDate(options.from)));
+      const fromMs = options.from.getTime();
+      expenses = expenses.filter((e) => {
+        const d = getExpenseDate(e.date);
+        return d.getTime() >= fromMs;
+      });
     }
     if (options?.to) {
-      constraints.push(where('date', '<=', Timestamp.fromDate(options.to)));
+      const toMs = options.to.getTime();
+      expenses = expenses.filter((e) => {
+        const d = getExpenseDate(e.date);
+        return d.getTime() <= toMs;
+      });
     }
 
-    const q = query(expensesCollection, ...constraints, orderBy('date', 'desc'), limit(max));
-    const snapshot = await getDocsHybrid(q);
-    return snapshot.docs.map(
-      (docSnap) =>
-        ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }) as Expense
-    );
+    return expenses
+      .sort((a, b) => getExpenseDate(b.date).getTime() - getExpenseDate(a.date).getTime())
+      .slice(0, max);
   } catch (error) {
     console.error('Error listing expenses:', error);
     throw toFirestoreError(error);
   }
+}
+
+function getExpenseDate(value: Expense['date']): Date {
+  if (!value) return new Date();
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  if (typeof value === 'object' && 'seconds' in value) {
+    return new Date((value as { seconds: number }).seconds * 1000);
+  }
+  return new Date(String(value));
 }

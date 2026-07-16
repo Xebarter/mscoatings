@@ -9,6 +9,21 @@ export const LOCAL_MOVEMENTS_RETENTION = 5_000;
 /** Local field picks retained offline. */
 export const LOCAL_FIELD_PICKS_RETENTION = 1_000;
 
+/** Local expenses retained offline. */
+export const LOCAL_EXPENSES_RETENTION = 2_000;
+
+/** Local credit customers retained offline. */
+export const LOCAL_CREDIT_CUSTOMERS_RETENTION = 1_000;
+
+/** Local credit purchases retained offline. */
+export const LOCAL_CREDIT_PURCHASES_RETENTION = 2_000;
+
+/** Local credit transactions retained offline. */
+export const LOCAL_CREDIT_TRANSACTIONS_RETENTION = 5_000;
+
+/** Local field agent transactions retained offline. */
+export const LOCAL_FIELD_AGENT_TX_RETENTION = 2_000;
+
 /** Soft warning: prompt operator to reconnect soon. */
 export const PENDING_WARN_COUNT = 400;
 

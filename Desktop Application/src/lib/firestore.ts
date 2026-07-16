@@ -16,7 +16,21 @@ import { isOnline } from './offline/connectivity';
 import { getDocHybrid, getDocsHybrid } from './offline/firestore-reads';
 import { localGet, localSet, type SnapshotKey } from './offline/local-store';
 import { prefetchProductImages } from './offline/product-images';
-import type { Product, Order, Sale, StockMovement, FieldAgent, FieldPick, Staff, Customer } from './types';
+import type {
+  Product,
+  Order,
+  Sale,
+  StockMovement,
+  FieldAgent,
+  FieldPick,
+  FieldAgentTransaction,
+  Staff,
+  Customer,
+  Expense,
+  CreditCustomer,
+  CreditPurchase,
+  CreditTransaction,
+} from './types';
 
 export const productsCollection = collection(db, 'products');
 export const ordersCollection = collection(db, 'orders');
@@ -24,6 +38,11 @@ export const salesCollection = collection(db, 'sales');
 export const stockMovementsCollection = collection(db, 'stockMovements');
 export const fieldAgentsCollection = collection(db, 'fieldAgents');
 export const fieldPicksCollection = collection(db, 'fieldPicks');
+export const fieldAgentTransactionsCollection = collection(db, 'fieldAgentTransactions');
+export const expensesCollection = collection(db, 'expenses');
+export const creditCustomersCollection = collection(db, 'creditCustomers');
+export const creditPurchasesCollection = collection(db, 'creditPurchases');
+export const creditTransactionsCollection = collection(db, 'creditTransactions');
 export const staffCollection = collection(db, 'staff');
 export const customersCollection = collection(db, 'customers');
 
@@ -142,6 +161,44 @@ function serializeCustomers(items: Customer[]) {
   }));
 }
 
+function serializeExpenses(items: Expense[]) {
+  return items.map((e) => ({
+    ...e,
+    date: serializeTimestamp(e.date),
+    createdAt: serializeTimestamp(e.createdAt),
+  }));
+}
+
+function serializeCreditCustomers(items: CreditCustomer[]) {
+  return items.map((c) => ({
+    ...c,
+    createdAt: serializeTimestamp(c.createdAt),
+  }));
+}
+
+function serializeCreditPurchases(items: CreditPurchase[]) {
+  return items.map((p) => ({
+    ...p,
+    createdAt: serializeTimestamp(p.createdAt),
+    dueDate: serializeTimestamp(p.dueDate),
+    closedAt: serializeTimestamp(p.closedAt),
+  }));
+}
+
+function serializeCreditTransactions(items: CreditTransaction[]) {
+  return items.map((t) => ({
+    ...t,
+    createdAt: serializeTimestamp(t.createdAt),
+  }));
+}
+
+function serializeFieldAgentTransactions(items: FieldAgentTransaction[]) {
+  return items.map((t) => ({
+    ...t,
+    createdAt: serializeTimestamp(t.createdAt),
+  }));
+}
+
 function serializeStaff(items: Staff[]) {
   return items.map((s) => ({
     ...s,
@@ -218,6 +275,50 @@ function reviveCustomers(items: Customer[]): Customer[] {
   return items.map((c) => ({
     ...c,
     createdAt: reviveTimestamp(c.createdAt) as Customer['createdAt'],
+  }));
+}
+
+function reviveExpenses(items: Expense[]): Expense[] {
+  return items.map((e) => ({
+    ...e,
+    date: reviveTimestamp(e.date) as Expense['date'],
+    createdAt: reviveTimestamp(e.createdAt) as Expense['createdAt'],
+  }));
+}
+
+function reviveCreditCustomers(items: CreditCustomer[]): CreditCustomer[] {
+  return items.map((c) => ({
+    ...c,
+    createdAt: reviveTimestamp(c.createdAt) as CreditCustomer['createdAt'],
+  }));
+}
+
+function reviveCreditPurchases(items: CreditPurchase[]): CreditPurchase[] {
+  return items.map((p) => ({
+    ...p,
+    createdAt: reviveTimestamp(p.createdAt) as CreditPurchase['createdAt'],
+    dueDate: p.dueDate
+      ? (reviveTimestamp(p.dueDate) as CreditPurchase['dueDate'])
+      : undefined,
+    closedAt: p.closedAt
+      ? (reviveTimestamp(p.closedAt) as CreditPurchase['closedAt'])
+      : undefined,
+  }));
+}
+
+function reviveCreditTransactions(items: CreditTransaction[]): CreditTransaction[] {
+  return items.map((t) => ({
+    ...t,
+    createdAt: reviveTimestamp(t.createdAt) as CreditTransaction['createdAt'],
+  }));
+}
+
+function reviveFieldAgentTransactions(
+  items: FieldAgentTransaction[]
+): FieldAgentTransaction[] {
+  return items.map((t) => ({
+    ...t,
+    createdAt: reviveTimestamp(t.createdAt) as FieldAgentTransaction['createdAt'],
   }));
 }
 
@@ -543,6 +644,78 @@ export async function getCustomers(): Promise<Customer[]> {
   return reviveCustomers(items);
 }
 
+export async function getExpenses(limitCount = 2_000): Promise<Expense[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('expenses', async () => {
+    const q = query(expensesCollection, orderBy('date', 'desc'), limit(limitCount));
+    const snapshot = await getDocsHybrid(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Expense);
+  }, serializeExpenses);
+  return reviveExpenses(items).slice(0, limitCount);
+}
+
+export async function getCreditCustomers(limitCount = 1_000): Promise<CreditCustomer[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('creditCustomers', async () => {
+    const q = query(
+      creditCustomersCollection,
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocsHybrid(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditCustomer);
+  }, serializeCreditCustomers);
+  return reviveCreditCustomers(items).slice(0, limitCount);
+}
+
+export async function getCreditPurchases(limitCount = 2_000): Promise<CreditPurchase[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('creditPurchases', async () => {
+    const q = query(
+      creditPurchasesCollection,
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocsHybrid(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditPurchase);
+  }, serializeCreditPurchases);
+  return reviveCreditPurchases(items).slice(0, limitCount);
+}
+
+export async function getCreditTransactions(
+  limitCount = 5_000
+): Promise<CreditTransaction[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('creditTransactions', async () => {
+    const q = query(
+      creditTransactionsCollection,
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocsHybrid(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditTransaction);
+  }, serializeCreditTransactions);
+  return reviveCreditTransactions(items).slice(0, limitCount);
+}
+
+export async function getFieldAgentTransactions(
+  limitCount = 2_000
+): Promise<FieldAgentTransaction[]> {
+  await ensureAccess();
+  const items = await withLocalMirror('fieldAgentTransactions', async () => {
+    const q = query(
+      fieldAgentTransactionsCollection,
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocsHybrid(q);
+    return snapshot.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as FieldAgentTransaction
+    );
+  }, serializeFieldAgentTransactions);
+  return reviveFieldAgentTransactions(items).slice(0, limitCount);
+}
+
 export async function getSaleById(saleId: string): Promise<Sale | null> {
   try {
     await ensureAccess();
@@ -646,6 +819,11 @@ export async function warmOfflineCache(): Promise<void> {
     getStockMovements(2_000),
     getFieldAgents(),
     getFieldPicks(),
+    getFieldAgentTransactions(2_000),
+    getExpenses(2_000),
+    getCreditCustomers(1_000),
+    getCreditPurchases(2_000),
+    getCreditTransactions(5_000),
     getCustomers(),
     auth.currentUser?.email
       ? getStaffByEmail(auth.currentUser.email)

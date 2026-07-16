@@ -52,6 +52,14 @@ export type PendingBatchWrite = {
     | 'field.pick.settle'
     | 'field.agent.upsert'
     | 'field.agent.deposit'
+    | 'expense.create'
+    | 'expense.update'
+    | 'expense.delete'
+    | 'credit.customer.upsert'
+    | 'credit.purchase'
+    | 'credit.payment'
+    | 'credit.deposit'
+    | 'credit.wallet_apply'
     | 'batch';
   createdAt: number;
   ops: PendingDocOp[];
@@ -183,6 +191,22 @@ export function pendingKindLabel(kind: PendingWrite['kind']): string {
       return 'Field agent';
     case 'field.agent.deposit':
       return 'Field agent deposit';
+    case 'expense.create':
+      return 'Expense';
+    case 'expense.update':
+      return 'Expense update';
+    case 'expense.delete':
+      return 'Expense delete';
+    case 'credit.customer.upsert':
+      return 'Credit customer';
+    case 'credit.purchase':
+      return 'Credit purchase';
+    case 'credit.payment':
+      return 'Credit payment';
+    case 'credit.deposit':
+      return 'Credit deposit';
+    case 'credit.wallet_apply':
+      return 'Wallet applied';
     default:
       return 'Change';
   }

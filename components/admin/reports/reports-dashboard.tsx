@@ -112,7 +112,7 @@ function OverviewSection({ report, search }: { report: EnterpriseReport; search:
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
-        <KpiCard label="Cash on Hand" metric={kpis.cashOnHand} icon={Banknote} />
+        <KpiCard label="Cash on Hand" metric={kpis.cashOnHand} icon={Banknote} highlight="cash" />
         <KpiCard label="Mobile Money" metric={kpis.mobileMoneyBalance} icon={Smartphone} />
         <KpiCard label="Bank Balances" metric={kpis.bankBalance} icon={Banknote} />
         <KpiCard label="Refunds" metric={kpis.refundAmount} icon={RefreshCcw} />

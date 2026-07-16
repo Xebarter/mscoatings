@@ -15,6 +15,7 @@ interface KpiCardProps {
   format?: 'currency' | 'number' | 'percent';
   onClick?: () => void;
   emphasis?: boolean;
+  highlight?: 'cash';
 }
 
 function formatValue(value: number, format: 'currency' | 'number' | 'percent') {
@@ -45,16 +46,22 @@ export function KpiCard({
   format = 'currency',
   onClick,
   emphasis = false,
+  highlight,
 }: KpiCardProps) {
   const theme = useReportsTheme();
   const isDark = theme === 'dark';
+  const isCashHighlight = highlight === 'cash';
   const showSpark = useShowDesktopSparkline();
   const sparkData = metric.sparkline.map((value, index) => ({ index, value }));
   const isPositive = (metric.changePercent ?? 0) >= 0;
   const sparkId = `kpi-spark-${label.replace(/\s/g, '')}`;
-  const stroke = isDark ? '#38bdf8' : '#0077c8';
+  const stroke = isCashHighlight ? (isDark ? '#34d399' : '#059669') : isDark ? '#38bdf8' : '#0077c8';
   const display = metric.available ? formatValue(metric.value, format) : '—';
   const hasSpark = showSpark && sparkData.some((d) => d.value > 0);
+
+  const panelClass = isCashHighlight
+    ? 'relative rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-50/95 via-white/85 to-green-100/80 shadow-[0_8px_32px_rgba(16,185,129,0.18)] backdrop-blur-xl transition duration-300 hover:border-emerald-400/70 hover:shadow-[0_12px_44px_rgba(16,185,129,0.28)] dark:border-emerald-400/35 dark:bg-gradient-to-br dark:from-emerald-950/70 dark:via-[rgba(8,24,20,0.88)] dark:to-emerald-900/45 dark:shadow-[0_8px_40px_rgba(16,185,129,0.25),inset_0_1px_0_rgba(52,211,153,0.12)] dark:hover:border-emerald-400/50 dark:hover:shadow-[0_12px_48px_rgba(52,211,153,0.32),inset_0_1px_0_rgba(52,211,153,0.18)]'
+    : reportsGlass.panel;
 
   return (
     <button
@@ -62,28 +69,48 @@ export function KpiCard({
       onClick={onClick}
       disabled={!onClick}
       title={typeof display === 'string' ? `${label}: ${display}` : label}
-      className={`group relative overflow-hidden text-left touch-manipulation ${reportsGlass.panel} ${
-        emphasis ? 'p-3.5 sm:p-6' : 'p-3 sm:p-4'
+      className={`group relative overflow-hidden text-left touch-manipulation ${panelClass} ${
+        emphasis || isCashHighlight ? 'p-3.5 sm:p-6' : 'p-3 sm:p-4'
       } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-premium-blue/50 to-transparent opacity-80 dark:via-cyan/60"
+        className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent opacity-80 ${
+          isCashHighlight
+            ? 'via-emerald-400/80 dark:via-emerald-300/70'
+            : 'via-premium-blue/50 dark:via-cyan/60'
+        }`}
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-premium-blue/5 blur-2xl transition group-hover:bg-cyan/10 dark:bg-cyan/15 dark:group-hover:bg-cyan/25"
+        className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl transition ${
+          isCashHighlight
+            ? 'bg-emerald-400/15 group-hover:bg-emerald-400/25 dark:bg-emerald-400/25 dark:group-hover:bg-emerald-300/35'
+            : 'bg-premium-blue/5 group-hover:bg-cyan/10 dark:bg-cyan/15 dark:group-hover:bg-cyan/25'
+        }`}
       />
 
       <div className="relative flex items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 sm:text-[11px] dark:text-slate-500">
+          <p
+            className={`truncate text-[10px] font-semibold uppercase tracking-[0.08em] sm:text-[11px] ${
+              isCashHighlight
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-slate-500 dark:text-slate-500'
+            }`}
+          >
             {label}
           </p>
           <p
-            className={`mt-1 break-words font-bold leading-snug tracking-tight text-slate-900 dark:text-white sm:mt-1.5 ${
-              emphasis
-                ? 'text-lg sm:text-3xl dark:drop-shadow-[0_0_20px_rgba(56,189,248,0.15)]'
+            className={`mt-1 break-words font-bold leading-snug tracking-tight sm:mt-1.5 ${
+              isCashHighlight
+                ? 'text-emerald-800 dark:text-emerald-200 dark:drop-shadow-[0_0_20px_rgba(52,211,153,0.35)]'
+                : 'text-slate-900 dark:text-white'
+            } ${
+              emphasis || isCashHighlight
+                ? emphasis && !isCashHighlight
+                  ? 'text-lg sm:text-3xl dark:drop-shadow-[0_0_20px_rgba(56,189,248,0.15)]'
+                  : 'text-lg sm:text-3xl'
                 : 'text-sm sm:text-2xl'
             }`}
           >
@@ -107,9 +134,15 @@ export function KpiCard({
             </div>
           )}
         </div>
-        <div className="flex shrink-0 rounded-lg bg-gradient-to-br from-premium-blue/15 to-cyan/15 p-1.5 text-premium-blue shadow-sm ring-1 ring-premium-blue/10 sm:rounded-xl sm:p-2.5 dark:from-cyan/20 dark:to-premium-blue/20 dark:text-cyan dark:ring-cyan/25 dark:shadow-[0_0_20px_rgba(25,181,254,0.2)]">
-          <Icon size={emphasis ? 16 : 14} className="sm:hidden" />
-          <Icon size={emphasis ? 20 : 18} className="hidden sm:block" />
+        <div
+          className={`flex shrink-0 rounded-lg p-1.5 shadow-sm ring-1 sm:rounded-xl sm:p-2.5 ${
+            isCashHighlight
+              ? 'bg-gradient-to-br from-emerald-400/25 to-green-400/20 text-emerald-700 ring-emerald-400/30 dark:from-emerald-400/30 dark:to-green-400/20 dark:text-emerald-300 dark:ring-emerald-400/40 dark:shadow-[0_0_24px_rgba(52,211,153,0.35)]'
+              : 'bg-gradient-to-br from-premium-blue/15 to-cyan/15 text-premium-blue ring-premium-blue/10 dark:from-cyan/20 dark:to-premium-blue/20 dark:text-cyan dark:ring-cyan/25 dark:shadow-[0_0_20px_rgba(25,181,254,0.2)]'
+          }`}
+        >
+          <Icon size={emphasis || isCashHighlight ? 16 : 14} className="sm:hidden" />
+          <Icon size={emphasis || isCashHighlight ? 20 : 18} className="hidden sm:block" />
         </div>
       </div>
 

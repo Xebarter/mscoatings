@@ -25,6 +25,7 @@ import type {
 import {
   getFieldAgents,
   getFieldPicks,
+  getFieldAgentTransactions,
   getProductById,
   toFirestoreError,
 } from './firestore';
@@ -33,12 +34,14 @@ import { getDocHybrid, getDocsHybrid, withTimeout } from './offline/firestore-re
 import { localGet, localSet } from './offline/local-store';
 import {
   LOCAL_FIELD_PICKS_RETENTION,
+  LOCAL_FIELD_AGENT_TX_RETENTION,
   LOCAL_MOVEMENTS_RETENTION,
   LOCAL_SALES_RETENTION,
 } from './offline/limits';
 import { syncDocOps } from './offline/flush-queue';
 import {
   serializeDeep,
+  reviveDeep,
   stampTimestamp,
   type PendingDocOp,
 } from './offline/pending-writes';
@@ -150,6 +153,16 @@ async function patchLocalFieldAgents(mutator: (items: FieldAgent[]) => FieldAgen
   const cached = await localGet<{ items: FieldAgent[]; savedAt: number }>('fieldAgents');
   const items = mutator(cached?.items ?? []);
   await localSet('fieldAgents', { items, savedAt: Date.now() });
+}
+
+async function patchLocalFieldAgentTransactions(
+  mutator: (items: FieldAgentTransaction[]) => FieldAgentTransaction[]
+) {
+  const cached = await localGet<{ items: FieldAgentTransaction[]; savedAt: number }>(
+    'fieldAgentTransactions'
+  );
+  const items = mutator(cached?.items ?? []).slice(0, LOCAL_FIELD_AGENT_TX_RETENTION);
+  await localSet('fieldAgentTransactions', { items, savedAt: Date.now() });
 }
 
 async function prependLocalSale(sale: Sale) {
@@ -400,6 +413,15 @@ export async function recordFieldAgentDepositClient(
       items.map((a) => (a.id === agentId ? { ...a, walletBalance } : a))
     );
 
+    await patchLocalFieldAgentTransactions((items) => [
+      {
+        id: txRef.id,
+        ...transactionPayload,
+        createdAt: stampTimestamp(createdAt) as unknown as FieldAgentTransaction['createdAt'],
+      },
+      ...items,
+    ]);
+
     await syncDocOps({
       id: `field-agent-deposit-${txRef.id}`,
       kind: 'field.agent.deposit',
@@ -442,21 +464,11 @@ export async function listFieldAgentTransactionsClient(options?: {
   await ensureFirestoreAuthReady();
   try {
     const max = options?.limit ?? 200;
-    const constraints = [] as ReturnType<typeof where>[];
+    let transactions = await getFieldAgentTransactions(max);
     if (options?.agentId) {
-      constraints.push(where('agentId', '==', options.agentId));
+      transactions = transactions.filter((t) => t.agentId === options.agentId);
     }
-
-    const q = query(
-      collection(db, 'fieldAgentTransactions'),
-      ...constraints,
-      orderBy('createdAt', 'desc'),
-      limit(max)
-    );
-    const snapshot = await getDocsHybrid(q);
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as FieldAgentTransaction
-    );
+    return transactions.slice(0, max);
   } catch (error) {
     throw toFirestoreError(error);
   }
@@ -940,6 +952,17 @@ export async function submitFieldPickReportClient(
       await prependLocalSale({ id: saleId, ...salePayload });
     }
     await prependLocalMovements(movements);
+
+    const newAgentTxs: FieldAgentTransaction[] = [];
+    for (const op of ops) {
+      if (op.op === 'set' && op.collection === 'fieldAgentTransactions') {
+        const data = reviveDeep(op.data) as Omit<FieldAgentTransaction, 'id'>;
+        newAgentTxs.push({ id: op.docId, ...data });
+      }
+    }
+    if (newAgentTxs.length > 0) {
+      await patchLocalFieldAgentTransactions((items) => [...newAgentTxs, ...items]);
+    }
 
     await syncDocOps({
       id: `field-pick-submit-${input.pickId}`,
