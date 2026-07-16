@@ -77,9 +77,9 @@ export default function FieldSalesPage() {
         setTab('active');
       }
     } catch {
-      /* fall through */
+      /* fall through to full reload */
     }
-    void loadData(true);
+    await loadData(true);
   };
 
   const loadData = async (refresh = false) => {
@@ -144,7 +144,7 @@ export default function FieldSalesPage() {
       );
       setShowAgentForm(false);
       setAgentForm({ name: '', phone: '', email: '', notes: '' });
-      void loadData(true);
+      await loadData(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create agent');
     } finally {
@@ -155,7 +155,7 @@ export default function FieldSalesPage() {
   const handleToggleAgent = async (agent: FieldAgent) => {
     try {
       await updateFieldAgentClient(agent.id, { active: !agent.active });
-      void loadData(true);
+      await loadData(true);
     } catch {
       toast.error('Failed to update agent');
     }
@@ -560,7 +560,10 @@ export default function FieldSalesPage() {
         pick={reportPick}
         open={!!reportPick}
         onClose={() => setReportPick(null)}
-        onSuccess={() => void loadData(true)}
+        onSuccess={async () => {
+          setReportPick(null);
+          await loadData(true);
+        }}
       />
     </div>
   );

@@ -102,6 +102,10 @@ async function loadProduct(productId: string): Promise<Product> {
 }
 
 async function loadPick(pickId: string): Promise<FieldPick> {
+  const cached = await localGet<{ items: FieldPick[]; savedAt: number }>('fieldPicks');
+  const fromMirror = cached?.items?.find((p) => p.id === pickId);
+  if (fromMirror) return fromMirror;
+
   const ref = doc(db, 'fieldPicks', pickId);
   try {
     const snap = await getDocHybrid(ref);
@@ -111,13 +115,14 @@ async function loadPick(pickId: string): Promise<FieldPick> {
   } catch {
     /* fall through */
   }
-  const cached = await localGet<{ items: FieldPick[]; savedAt: number }>('fieldPicks');
-  const local = cached?.items?.find((p) => p.id === pickId);
-  if (local) return local;
   throw new Error('Pick not found');
 }
 
 async function loadAgent(agentId: string): Promise<FieldAgent | null> {
+  const cached = await localGet<{ items: FieldAgent[]; savedAt: number }>('fieldAgents');
+  const fromMirror = cached?.items?.find((a) => a.id === agentId);
+  if (fromMirror) return fromMirror;
+
   const ref = doc(db, 'fieldAgents', agentId);
   try {
     const snap = await getDocHybrid(ref);
@@ -127,16 +132,14 @@ async function loadAgent(agentId: string): Promise<FieldAgent | null> {
   } catch {
     /* fall through */
   }
-  const cached = await localGet<{ items: FieldAgent[]; savedAt: number }>('fieldAgents');
-  return cached?.items?.find((a) => a.id === agentId) ?? null;
+  return null;
 }
 
 async function patchLocalProductStock(
   updates: Array<{ productId: string; stock: number }>
 ) {
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
-  if (!cached?.items) return;
-  const next = cached.items.map((p) => {
+  const next = (cached?.items ?? []).map((p) => {
     const match = updates.find((u) => u.productId === p.id);
     return match ? { ...p, stock: match.stock } : p;
   });

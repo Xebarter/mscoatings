@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Search, Package, Pencil } from 'lucide-react';
 import { getProducts } from '@/lib/firestore';
@@ -23,16 +23,19 @@ const statusStyles = {
 
 export default function ProductsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    if (location.pathname !== '/products') return;
+    setLoading(true);
     void getProducts()
       .then(setProducts)
       .catch(() => toast.error('Failed to load products'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [location.pathname]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

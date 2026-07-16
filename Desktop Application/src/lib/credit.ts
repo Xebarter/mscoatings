@@ -71,6 +71,10 @@ async function loadProduct(productId: string): Promise<Product> {
 }
 
 async function loadCreditCustomer(customerId: string): Promise<CreditCustomer | null> {
+  const cached = await localGet<{ items: CreditCustomer[] }>('creditCustomers');
+  const fromMirror = cached?.items?.find((c) => c.id === customerId);
+  if (fromMirror) return fromMirror;
+
   try {
     const snap = await getDocHybrid(doc(creditCustomersCollection, customerId));
     if (snap.exists()) {
@@ -79,11 +83,14 @@ async function loadCreditCustomer(customerId: string): Promise<CreditCustomer | 
   } catch {
     /* fall through */
   }
-  const cached = await localGet<{ items: CreditCustomer[] }>('creditCustomers');
-  return cached?.items?.find((c) => c.id === customerId) ?? null;
+  return null;
 }
 
 async function loadCreditPurchase(purchaseId: string): Promise<CreditPurchase | null> {
+  const cached = await localGet<{ items: CreditPurchase[] }>('creditPurchases');
+  const fromMirror = cached?.items?.find((p) => p.id === purchaseId);
+  if (fromMirror) return fromMirror;
+
   try {
     const snap = await getDocHybrid(doc(creditPurchasesCollection, purchaseId));
     if (snap.exists()) {
@@ -92,8 +99,7 @@ async function loadCreditPurchase(purchaseId: string): Promise<CreditPurchase | 
   } catch {
     /* fall through */
   }
-  const cached = await localGet<{ items: CreditPurchase[] }>('creditPurchases');
-  return cached?.items?.find((p) => p.id === purchaseId) ?? null;
+  return null;
 }
 
 async function patchLocalCreditCustomers(
@@ -133,8 +139,7 @@ async function patchLocalProductStock(
   updates: Array<{ productId: string; stock: number }>
 ) {
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
-  if (!cached?.items) return;
-  const next = cached.items.map((p) => {
+  const next = (cached?.items ?? []).map((p) => {
     const match = updates.find((u) => u.productId === p.id);
     return match ? { ...p, stock: match.stock } : p;
   });

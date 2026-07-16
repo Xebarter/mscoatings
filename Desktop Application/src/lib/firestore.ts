@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  getDocFromCache,
   Timestamp,
   query,
   where,
@@ -71,29 +70,59 @@ async function ensureAccess() {
   await ensureFirestoreAuthReady();
 }
 
-async function withLocalMirror<T>(
+/** Local-first merge: pending offline writes stay visible until Firestore catches up. */
+function mergeMirrorItems<T extends { id: string }>(local: T[], remote: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const item of remote) byId.set(item.id, item);
+  for (const item of local) byId.set(item.id, item);
+  return Array.from(byId.values());
+}
+
+function timestampMillis(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === 'object' && value !== null && 'toMillis' in value) {
+    const maybe = value as { toMillis?: () => number };
+    if (typeof maybe.toMillis === 'function') return maybe.toMillis();
+  }
+  return reviveTimestamp(value).toMillis();
+}
+
+async function findInMirror<T extends { id: string }>(
+  key: SnapshotKey,
+  id: string,
+  revive?: (items: T[]) => T[]
+): Promise<T | null> {
+  const cached = await localGet<{ items: T[]; savedAt: number }>(key);
+  const item = cached?.items?.find((entry) => entry.id === id);
+  if (!item) return null;
+  return revive ? revive([item])[0] ?? item : item;
+}
+
+async function withLocalMirror<T extends { id: string }>(
   key: SnapshotKey,
   fetch: () => Promise<T[]>,
   serialize?: (items: T[]) => unknown
 ): Promise<T[]> {
+  const cached = await localGet<{ items: T[]; savedAt: number }>(key);
+  const localItems = cached?.items ?? [];
+
   // Prefer IndexedDB mirror immediately when offline so POS/checkout never blocks.
   if (!isOnline()) {
-    const cached = await localGet<{ items: T[]; savedAt: number }>(key);
-    if (cached?.items) {
+    if (cached && Array.isArray(cached.items)) {
       return cached.items;
     }
   }
 
   try {
-    const items = await fetch();
+    const remote = await fetch();
+    const merged = mergeMirrorItems(localItems, remote);
     await localSet(key, {
-      items: serialize ? serialize(items) : items,
+      items: serialize ? serialize(merged) : merged,
       savedAt: Date.now(),
     });
-    return items;
+    return merged;
   } catch (error) {
-    const cached = await localGet<{ items: T[]; savedAt: number }>(key);
-    if (cached?.items) {
+    if (cached && Array.isArray(cached.items)) {
       return cached.items;
     }
     throw toFirestoreError(error);
@@ -337,6 +366,14 @@ export async function getProducts(): Promise<Product[]> {
 
 export async function getProductByBarcode(barcode: string): Promise<Product | null> {
   const trimmed = barcode.trim();
+  if (!trimmed) return null;
+
+  const products = await getProducts();
+  const fromMirror = products.find((p) => p.barcode === trimmed);
+  if (fromMirror) return fromMirror;
+
+  if (!isOnline()) return null;
+
   try {
     const q = query(productsCollection, where('barcode', '==', trimmed));
     const snapshot = await getDocsHybrid(q);
@@ -345,38 +382,32 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
       return { id: d.id, ...d.data() } as Product;
     }
   } catch {
-    /* fall through to local + id lookup */
+    /* fall through */
   }
 
-  try {
-    const snap = await getDocFromCache(doc(productsCollection, trimmed)).catch(() => null);
-    if (snap?.exists()) return { id: snap.id, ...snap.data() } as Product;
-  } catch {
-    /* ignore */
-  }
-
-  const products = await getProducts();
-  return products.find((p) => p.barcode === trimmed) ?? null;
+  return null;
 }
 
 export async function getProductById(productId: string): Promise<Product | null> {
+  const fromMirror = await findInMirror('products', productId, reviveProducts);
+  if (fromMirror) return fromMirror;
+
   try {
     const snap = await getDocHybrid(doc(productsCollection, productId));
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Product;
   } catch {
     /* fall through */
   }
-  const products = await getProducts();
-  return products.find((p) => p.id === productId) ?? null;
+  return null;
 }
 
 async function patchLocalProducts(
   mutator: (items: Product[]) => Product[]
 ): Promise<void> {
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
-  if (!cached?.items) return;
+  const items = serializeProducts(mutator(cached?.items ?? []));
   await localSet('products', {
-    items: serializeProducts(mutator(cached.items)),
+    items,
     savedAt: Date.now(),
   });
 }
@@ -536,14 +567,17 @@ export async function getOrders(): Promise<Order[]> {
 export async function getOrderById(orderId: string): Promise<Order | null> {
   try {
     await ensureAccess();
+    const orders = await getOrders();
+    const fromMirror = orders.find((o) => o.id === orderId);
+    if (fromMirror) return fromMirror;
+
     const ref = doc(ordersCollection, orderId);
     const snap = await getDocHybrid(ref);
     if (snap.exists()) return { id: snap.id, ...snap.data() } as Order;
   } catch {
     /* fall through */
   }
-  const orders = await getOrders();
-  return orders.find((o) => o.id === orderId) ?? null;
+  return null;
 }
 
 export async function updateOrderStatus(orderId: string, status: Order['status']) {
@@ -598,7 +632,9 @@ export async function listSales(limitCount = 100): Promise<Sale[]> {
     const snapshot = await getDocsHybrid(q);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Sale);
   }, serializeSales);
-  return reviveSales(items).slice(0, limitCount);
+  return reviveSales(items)
+    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+    .slice(0, limitCount);
 }
 
 export async function getStockMovements(limitCount = 50): Promise<StockMovement[]> {
@@ -608,7 +644,9 @@ export async function getStockMovements(limitCount = 50): Promise<StockMovement[
     const snapshot = await getDocsHybrid(q);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as StockMovement);
   }, serializeMovements);
-  return reviveMovements(items).slice(0, limitCount);
+  return reviveMovements(items)
+    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+    .slice(0, limitCount);
 }
 
 export async function getFieldAgents(): Promise<FieldAgent[]> {
@@ -620,19 +658,21 @@ export async function getFieldAgents(): Promise<FieldAgent[]> {
   return reviveAgents(items);
 }
 
+function sortFieldPicks(items: FieldPick[]): FieldPick[] {
+  return [...items].sort((a, b) => {
+    const aMs = (a.pickedAt ?? a.createdAt)?.toMillis?.() ?? 0;
+    const bMs = (b.pickedAt ?? b.createdAt)?.toMillis?.() ?? 0;
+    return bMs - aMs;
+  });
+}
+
 export async function getFieldPicks(): Promise<FieldPick[]> {
   await ensureAccess();
   const items = await withLocalMirror('fieldPicks', async () => {
     const snapshot = await getDocsHybrid(fieldPicksCollection);
-    return snapshot.docs
-      .map((d) => ({ id: d.id, ...d.data() }) as FieldPick)
-      .sort((a, b) => {
-        const aMs = (a.pickedAt ?? a.createdAt)?.toMillis?.() ?? 0;
-        const bMs = (b.pickedAt ?? b.createdAt)?.toMillis?.() ?? 0;
-        return bMs - aMs;
-      });
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as FieldPick);
   }, serializePicks);
-  return revivePicks(items);
+  return sortFieldPicks(revivePicks(items));
 }
 
 export async function getCustomers(): Promise<Customer[]> {
@@ -713,7 +753,9 @@ export async function getFieldAgentTransactions(
       (d) => ({ id: d.id, ...d.data() }) as FieldAgentTransaction
     );
   }, serializeFieldAgentTransactions);
-  return reviveFieldAgentTransactions(items).slice(0, limitCount);
+  return reviveFieldAgentTransactions(items)
+    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+    .slice(0, limitCount);
 }
 
 export async function getSaleById(saleId: string): Promise<Sale | null> {

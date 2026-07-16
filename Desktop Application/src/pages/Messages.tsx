@@ -5,6 +5,7 @@ import { adminFetch, API_BASE } from '@/lib/admin-api';
 import {
   listContactMessagesClient,
   updateContactMessageClient,
+  cacheContactMessages,
   type ContactMessage,
   type ContactMessageStatus,
 } from '@/lib/messages';
@@ -55,12 +56,7 @@ export default function MessagesPage() {
           setMessages(apiMessages);
           setSource('api');
           // Keep IndexedDB warm so Messages still works after going offline.
-          void import('@/lib/offline/local-store').then(({ localSet }) =>
-            localSet('contactMessages', {
-              items: apiMessages,
-              savedAt: Date.now(),
-            })
-          );
+          void cacheContactMessages(apiMessages);
           bumpAlerts();
           return;
         } catch (apiError) {

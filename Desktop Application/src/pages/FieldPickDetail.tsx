@@ -297,9 +297,9 @@ export default function FieldPickDetailPage() {
         pick={pick}
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setReportOpen(false);
-          void loadPick();
+          await loadPick();
         }}
       />
     </div>

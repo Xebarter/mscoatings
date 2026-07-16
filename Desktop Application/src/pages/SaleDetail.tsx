@@ -49,7 +49,7 @@ export default function SaleDetailPage() {
       await refundSale(saleId);
       toast.success('Sale refunded');
       setConfirmKind(null);
-      void loadSale();
+      await loadSale();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to refund');
     } finally {

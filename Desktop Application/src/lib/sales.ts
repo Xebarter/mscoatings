@@ -128,8 +128,7 @@ async function loadProduct(productId: string): Promise<Product> {
 
 async function patchLocalProductStock(updates: Array<{ productId: string; stock: number }>) {
   const cached = await localGet<{ items: Product[]; savedAt: number }>('products');
-  if (!cached?.items) return;
-  const next = cached.items.map((p) => {
+  const next = (cached?.items ?? []).map((p) => {
     const match = updates.find((u) => u.productId === p.id);
     return match ? { ...p, stock: match.stock } : p;
   });

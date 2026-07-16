@@ -61,6 +61,22 @@ function mapDoc(id: string, data: DocumentData): ContactMessage {
   };
 }
 
+function mergeMessages(local: ContactMessage[], remote: ContactMessage[]): ContactMessage[] {
+  const byId = new Map<string, ContactMessage>();
+  for (const item of remote) byId.set(item.id, item);
+  for (const item of local) byId.set(item.id, item);
+  return Array.from(byId.values()).sort((a, b) => {
+    const aMs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bMs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bMs - aMs;
+  });
+}
+
+export async function cacheContactMessages(items: ContactMessage[]): Promise<void> {
+  const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
+  await saveMessagesMirror(mergeMessages(cached?.items ?? [], items));
+}
+
 async function saveMessagesMirror(items: ContactMessage[]): Promise<void> {
   await localSet('contactMessages', { items, savedAt: Date.now() });
 }
@@ -69,8 +85,7 @@ async function patchMessagesMirror(
   mutator: (items: ContactMessage[]) => ContactMessage[]
 ): Promise<void> {
   const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
-  if (!cached?.items) return;
-  await saveMessagesMirror(mutator(cached.items));
+  await saveMessagesMirror(mutator(cached?.items ?? []));
 }
 
 export async function listContactMessagesClient(
@@ -104,11 +119,15 @@ export async function listContactMessagesClient(
 
     try {
       const snap = await getDocsHybrid(q);
-      const items = snap.docs.map((d) => mapDoc(d.id, d.data()));
+      const remote = snap.docs.map((d) => mapDoc(d.id, d.data()));
+      const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
+      const merged = mergeMessages(cached?.items ?? [], remote);
       if (status === 'all') {
-        await saveMessagesMirror(items);
+        await saveMessagesMirror(merged);
       }
-      return items;
+      const items =
+        status === 'all' ? merged : merged.filter((m) => m.status === status);
+      return items.slice(0, capped);
     } catch (error) {
       const cached = await localGet<{ items: ContactMessage[] }>('contactMessages');
       if (cached?.items?.length) {

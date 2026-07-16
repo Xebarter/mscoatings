@@ -101,14 +101,12 @@ export async function adjustStock(input: AdjustStockInput): Promise<number> {
     };
 
     const productsCache = await localGet<{ items: Product[]; savedAt: number }>('products');
-    if (productsCache?.items) {
-      await localSet('products', {
-        items: productsCache.items.map((p) =>
-          p.id === input.productId ? { ...p, stock: newStock } : p
-        ),
-        savedAt: Date.now(),
-      });
-    }
+    await localSet('products', {
+      items: (productsCache?.items ?? []).map((p) =>
+        p.id === input.productId ? { ...p, stock: newStock } : p
+      ),
+      savedAt: Date.now(),
+    });
 
     const movementsCache = await localGet<{ items: StockMovement[]; savedAt: number }>(
       'stockMovements'
