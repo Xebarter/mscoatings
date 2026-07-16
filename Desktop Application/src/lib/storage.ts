@@ -1,5 +1,7 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase';
+import { auth, storage } from './firebase';
+import { ensureFirestoreAuthReady } from './admin-auth';
+import { isOnline } from './offline/connectivity';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -21,6 +23,52 @@ function dataUrlToBlob(dataUrl: string, contentType: string): Blob {
   return new Blob([bytes], { type: contentType || 'image/jpeg' });
 }
 
+/**
+ * Firebase Storage rules require request.auth != null.
+ * Trusted offline desktop sessions without a live Auth user cannot upload.
+ */
+async function requireAuthForStorageUpload(): Promise<void> {
+  if (!isOnline()) {
+    throw new Error('Connect to the internet to upload product images.');
+  }
+
+  await ensureFirestoreAuthReady();
+
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error(
+      'Your login session is not ready for image uploads. Sign out, sign in again while online, then retry.'
+    );
+  }
+
+  try {
+    // Force a fresh ID token so Storage receives a valid auth context.
+    await user.getIdToken(true);
+  } catch {
+    throw new Error(
+      'Could not refresh your login for image uploads. Sign out, sign in again while online, then retry.'
+    );
+  }
+}
+
+function toStorageUploadError(error: unknown): Error {
+  if (error instanceof Error) {
+    const code = (error as { code?: string }).code ?? '';
+    const message = error.message.toLowerCase();
+    if (
+      code === 'storage/unauthorized' ||
+      message.includes('storage/unauthorized') ||
+      message.includes('does not have permission')
+    ) {
+      return new Error(
+        'Image upload denied. Sign out, sign in again while online, then retry. Only signed-in accounts can upload.'
+      );
+    }
+    return error;
+  }
+  return new Error('Failed to upload image');
+}
+
 export async function uploadProductImage(
   file: File,
   onProgress?: (percent: number) => void
@@ -30,21 +78,27 @@ export async function uploadProductImage(
     throw new Error(validationError);
   }
 
+  onProgress?.(5);
+  await requireAuthForStorageUpload();
   onProgress?.(10);
 
   const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
   const path = `products/${Date.now()}-${safeName}`;
   const storageRef = ref(storage, path);
 
-  await uploadBytes(storageRef, file, {
-    contentType: file.type,
-    cacheControl: 'public,max-age=31536000',
-  });
-  onProgress?.(85);
+  try {
+    await uploadBytes(storageRef, file, {
+      contentType: file.type,
+      cacheControl: 'public,max-age=31536000',
+    });
+    onProgress?.(85);
 
-  const downloadUrl = await getDownloadURL(storageRef);
-  onProgress?.(100);
-  return downloadUrl;
+    const downloadUrl = await getDownloadURL(storageRef);
+    onProgress?.(100);
+    return downloadUrl;
+  } catch (error) {
+    throw toStorageUploadError(error);
+  }
 }
 
 /** Upload a previously saved offline blob (or legacy data URL) when reconnecting. */
@@ -56,15 +110,22 @@ export async function uploadProductImageBlob(
   if (blob.size > MAX_IMAGE_SIZE_BYTES) {
     throw new Error('Queued image is too large to upload');
   }
+
+  await requireAuthForStorageUpload();
+
   const type = contentType || blob.type || 'image/jpeg';
   const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
   const path = `products/${productId}-${Date.now()}.${ext}`;
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob, {
-    contentType: type,
-    cacheControl: 'public,max-age=31536000',
-  });
-  return getDownloadURL(storageRef);
+  try {
+    await uploadBytes(storageRef, blob, {
+      contentType: type,
+      cacheControl: 'public,max-age=31536000',
+    });
+    return getDownloadURL(storageRef);
+  } catch (error) {
+    throw toStorageUploadError(error);
+  }
 }
 
 /** @deprecated Prefer uploadProductImageBlob — kept for legacy queued data URLs. */

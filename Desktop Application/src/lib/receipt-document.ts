@@ -19,7 +19,7 @@ export const RECEIPT_BUSINESS = {
   distributors:
     'DISTRIBUTORS OF M.S COATINGS PRODUCTS and KAPCI AUTOMOTIVE PRODUCTS',
   postal: 'P.O. Box Kampala',
-  phones: ['0776 656935', '0709 805 895', '0707 254 207'],
+  phones: ['0776 656935', '0709 805 895'],
   siteUrl: 'www.mscoatings.shop',
 } as const;
 
