@@ -24,6 +24,7 @@ import MessagesPage from '@/pages/Messages';
 import ExpensesPage from '@/pages/Expenses';
 import CreditPage from '@/pages/Credit';
 import CreditCustomerDetailPage from '@/pages/CreditCustomerDetail';
+import PosCustomersPage from '@/pages/PosCustomers';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="expenses" element={<ExpensesPage />} />
             <Route path="credit" element={<CreditPage />} />
             <Route path="credit/:id" element={<CreditCustomerDetailPage />} />
+            <Route path="customers" element={<PosCustomersPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

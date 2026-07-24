@@ -17,6 +17,7 @@ import {
   Truck,
   Warehouse,
   Wallet,
+  BookUser,
 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { clearOfflineSession } from '@/lib/admin-auth';
@@ -45,6 +46,7 @@ const navItems: {
   { to: '/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
   { to: '/expenses', label: 'Expenses', icon: Receipt, permission: 'viewReports' },
   { to: '/credit', label: 'Credit', icon: Wallet },
+  { to: '/customers', label: 'POS Customers', icon: BookUser },
   { to: '/messages', label: 'Messages', icon: Inbox, badge: 'messages', permission: 'viewMessages' },
   { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'viewReports' },
 ];
