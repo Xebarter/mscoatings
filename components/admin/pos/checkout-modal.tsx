@@ -17,6 +17,8 @@ interface CheckoutModalProps {
     paymentMethod: SalePaymentMethod;
     amountTendered?: number;
     paymentReference?: string;
+    customerName?: string;
+    customerPhone?: string;
   }) => void;
   isProcessing: boolean;
 }
@@ -39,21 +41,21 @@ export default function CheckoutModal({
 }: CheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] =
     useState<SalePaymentMethod>('cash');
-  const [amountTendered, setAmountTendered] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
 
   if (!open) return null;
 
-  const tendered = parseFloat(amountTendered) || 0;
-  const change =
-    paymentMethod === 'cash' ? Math.max(0, tendered - total) : 0;
-
   const handleConfirm = () => {
+    const name = customerName.trim();
+    const phone = customerPhone.trim();
     onConfirm({
       paymentMethod,
-      amountTendered:
-        paymentMethod === 'cash' ? tendered || total : total,
+      amountTendered: total,
       paymentReference: paymentReference || undefined,
+      customerName: name || undefined,
+      customerPhone: phone || undefined,
     });
   };
 
@@ -105,28 +107,34 @@ export default function CheckoutModal({
             </div>
           </div>
 
-          {paymentMethod === 'cash' && (
+          <div className="space-y-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Amount received
+                Customer name{' '}
+                <span className="font-normal text-slate-400">(optional)</span>
               </label>
               <input
-                type="number"
-                value={amountTendered}
-                onChange={(e) => setAmountTendered(e.target.value)}
-                placeholder={String(total)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-lg font-semibold focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Walk-in customer"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
-              {tendered > 0 && (
-                <p className="mt-2 text-sm text-slate-600">
-                  Change:{' '}
-                  <span className="font-bold text-emerald-600">
-                    {formatUgx(change)}
-                  </span>
-                </p>
-              )}
             </div>
-          )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Phone{' '}
+                <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="e.g. 0770123456"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+          </div>
 
           {paymentMethod === 'mobile_money' && (
             <div>

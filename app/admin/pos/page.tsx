@@ -334,6 +334,8 @@ export default function PosPage() {
     paymentMethod: SalePaymentMethod;
     amountTendered?: number;
     paymentReference?: string;
+    customerName?: string;
+    customerPhone?: string;
   }) => {
     if (cart.length === 0 || isProcessing) return;
 
@@ -382,6 +384,8 @@ export default function PosPage() {
       amountTendered,
       changeGiven,
       paymentReference: data.paymentReference,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
       cashierId,
       cashierEmail,
       status: 'completed',
@@ -412,6 +416,8 @@ export default function PosPage() {
         paymentMethod: data.paymentMethod,
         amountTendered: data.amountTendered,
         paymentReference: data.paymentReference,
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
       });
       setCompletedSale(sale);
       toast.success('Sale completed!', { id: toastId });

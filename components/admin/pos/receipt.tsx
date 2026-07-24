@@ -82,6 +82,12 @@ export default function Receipt({ sale }: ReceiptProps) {
             <span className="text-right font-semibold">{sale.customerName}</span>
           </div>
         )}
+        {sale.customerPhone && (
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500">Phone</span>
+            <span className="text-right font-semibold">{sale.customerPhone}</span>
+          </div>
+        )}
       </div>
 
       <hr className="my-3 border-0 border-t border-dashed border-slate-300" />
@@ -138,7 +144,9 @@ export default function Receipt({ sale }: ReceiptProps) {
           <span>Payment</span>
           <span>{getPaymentLabel(sale.paymentMethod)}</span>
         </div>
-        {sale.paymentMethod === 'cash' && sale.amountTendered != null && (
+        {sale.paymentMethod === 'cash' &&
+          sale.amountTendered != null &&
+          (sale.changeGiven ?? 0) > 0 && (
           <>
             <div className="flex justify-between text-slate-500">
               <span>Tendered</span>

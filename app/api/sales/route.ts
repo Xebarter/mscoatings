@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       paymentReference: body.paymentReference,
       customerId: body.customerId,
       customerName: body.customerName,
+      customerPhone: body.customerPhone,
       cashierId: auth.staff.uid,
       cashierEmail: auth.staff.email,
     });

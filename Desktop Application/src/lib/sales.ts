@@ -33,6 +33,8 @@ export interface CreateSaleInput {
   paymentMethod: SalePaymentMethod;
   amountTendered?: number;
   paymentReference?: string;
+  customerName?: string;
+  customerPhone?: string;
 }
 
 /** Live commit budget — flush path uses a longer timeout in flush-queue. */
@@ -358,6 +360,8 @@ function buildSalePayload(
     ...(input.amountTendered !== undefined ? { amountTendered: input.amountTendered } : {}),
     ...(changeGiven !== undefined ? { changeGiven } : {}),
     ...(input.paymentReference ? { paymentReference: input.paymentReference } : {}),
+    ...(input.customerName ? { customerName: input.customerName } : {}),
+    ...(input.customerPhone ? { customerPhone: input.customerPhone } : {}),
   };
 
   return { salePayload, stockUpdates };

@@ -73,6 +73,7 @@ export interface Sale {
   paymentReference?: string;
   customerId?: string;
   customerName?: string;
+  customerPhone?: string;
   cashierId: string;
   cashierEmail: string;
   status: SaleStatus;

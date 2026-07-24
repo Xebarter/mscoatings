@@ -325,16 +325,23 @@ export function buildReceiptPrintDocument(sale: Sale, logoSrc?: string): string 
       : '';
 
   const cashHtml =
-    sale.paymentMethod === 'cash' && sale.amountTendered != null
+    sale.paymentMethod === 'cash' &&
+    sale.amountTendered != null &&
+    (sale.changeGiven ?? 0) > 0
       ? `
         <div class="total-row muted"><span>Tendered</span><span>${escapeHtml(formatUgx(sale.amountTendered))}</span></div>
         <div class="total-row muted"><span>Change</span><span>${escapeHtml(formatUgx(sale.changeGiven ?? 0))}</span></div>
       `
       : '';
 
-  const customerHtml = sale.customerName
-    ? `<div class="meta"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>`
-    : '';
+  const customerHtml = [
+    sale.customerName
+      ? `<div class="meta"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>`
+      : '',
+    sale.customerPhone
+      ? `<div class="meta"><span>Phone</span><span>${escapeHtml(sale.customerPhone)}</span></div>`
+      : '',
+  ].join('');
 
   const referenceHtml = sale.paymentReference
     ? `<div class="meta"><span>Reference</span><span>${escapeHtml(sale.paymentReference)}</span></div>`

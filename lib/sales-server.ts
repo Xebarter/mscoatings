@@ -17,6 +17,7 @@ interface CreateSaleInput {
   paymentReference?: string;
   customerId?: string;
   customerName?: string;
+  customerPhone?: string;
   cashierId: string;
   cashierEmail: string;
 }
@@ -207,6 +208,7 @@ export async function createSale(input: CreateSaleInput): Promise<string> {
       paymentReference: input.paymentReference ?? null,
       customerId: input.customerId ?? null,
       customerName: input.customerName ?? null,
+      customerPhone: input.customerPhone ?? null,
       cashierId: input.cashierId,
       cashierEmail: input.cashierEmail,
       status: 'completed',

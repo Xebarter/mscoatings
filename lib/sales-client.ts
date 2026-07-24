@@ -31,6 +31,7 @@ interface CreateSaleInput {
   paymentReference?: string;
   customerId?: string;
   customerName?: string;
+  customerPhone?: string;
 }
 
 function generateReceiptNumber(): string {
@@ -220,6 +221,7 @@ export async function createSaleClient(input: CreateSaleInput): Promise<Sale> {
         paymentReference: input.paymentReference ?? null,
         customerId: input.customerId ?? null,
         customerName: input.customerName ?? null,
+        customerPhone: input.customerPhone ?? null,
         cashierId,
         cashierEmail,
         status: 'completed' as const,
@@ -249,6 +251,7 @@ export async function createSaleClient(input: CreateSaleInput): Promise<Sale> {
         paymentReference: input.paymentReference,
         customerId: input.customerId,
         customerName: input.customerName,
+        customerPhone: input.customerPhone,
       } satisfies Sale;
     });
 

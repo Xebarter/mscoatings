@@ -40,7 +40,8 @@ export default function POSPage() {
   const [orderDiscount, setOrderDiscount] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>('cash');
-  const [amountTendered, setAmountTendered] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -253,12 +254,13 @@ export default function POSPage() {
         paymentMethod,
         discountTotal: canApplyDiscount ? effectiveOrderDiscount : 0,
         maxDiscountPercent: canApplyDiscount ? maxDiscountPercent : 0,
-        amountTendered:
-          paymentMethod === 'cash' ? parseFloat(amountTendered) || cartTotal : undefined,
+        amountTendered: paymentMethod === 'cash' ? cartTotal : undefined,
         paymentReference:
           paymentMethod === 'mobile_money' && paymentReference.trim()
             ? paymentReference.trim()
             : undefined,
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
       });
 
       toast.success(
@@ -269,7 +271,8 @@ export default function POSPage() {
       setCart([]);
       setOrderDiscount(0);
       setCheckoutOpen(false);
-      setAmountTendered('');
+      setCustomerName('');
+      setCustomerPhone('');
       setPaymentReference('');
 
       const soldQty = new Map(
@@ -613,25 +616,34 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {paymentMethod === 'cash' && (
-                <div className="mb-4">
+              <div className="mb-4 space-y-3">
+                <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Amount Tendered
+                    Customer name{' '}
+                    <span className="font-normal text-slate-400">(optional)</span>
                   </label>
                   <input
-                    type="number"
-                    value={amountTendered}
-                    onChange={(e) => setAmountTendered(e.target.value)}
-                    placeholder={String(cartTotal)}
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Walk-in customer"
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
-                  {parseFloat(amountTendered) > cartTotal && (
-                    <p className="mt-2 text-sm text-emerald-600">
-                      Change: {formatUgx(parseFloat(amountTendered) - cartTotal)}
-                    </p>
-                  )}
                 </div>
-              )}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Phone{' '}
+                    <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="e.g. 0770123456"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
 
               {paymentMethod === 'mobile_money' && (
                 <div className="mb-4">
